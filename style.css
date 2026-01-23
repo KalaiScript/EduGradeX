@@ -259,17 +259,18 @@ input:checked:focus+.slider {
 }
 
 /* Prevent sticky focus on mobile */
+/* Prevent sticky focus on mobile - Force reset */
 .sem-btn:focus {
-    outline: none;
-    border-color: var(--glass-border);
-    background-color: var(--card-bg);
-    transform: none;
+    outline: none !important;
+    border-color: var(--glass-border) !important;
+    background-color: var(--card-bg) !important;
+    transform: none !important;
 }
 
 /* Restore for keyboard users */
 .sem-btn:focus-visible {
-    border-color: var(--primary-color);
-    background-color: var(--card-hover);
+    border-color: var(--primary-color) !important;
+    background-color: var(--card-hover) !important;
 }
 
 /* Modal Styles */
