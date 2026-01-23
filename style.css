@@ -244,10 +244,18 @@ input:checked:focus+.slider {
     color: var(--text-main);
 }
 
-.sem-btn:hover {
+@media (hover: hover) {
+    .sem-btn:hover {
+        background-color: var(--card-hover);
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+    }
+}
+
+.sem-btn:active {
     background-color: var(--card-hover);
     border-color: var(--primary-color);
-    transform: translateY(-2px);
+    transform: scale(0.98);
 }
 
 /* Modal Styles */
