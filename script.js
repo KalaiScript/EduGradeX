@@ -83,6 +83,7 @@ const gradePoints = { "O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C": 5, "U": 0 
 
 // Global State
 let currentSem = 1;
+let studentDetails = { name: '', rollNo: '' };
 
 // Navigation
 function selectSemester(sem) {
@@ -109,11 +110,10 @@ function getSubjects(sem) {
     const custom = JSON.parse(localStorage.getItem('custom_subjects') || '[]');
     const customForSem = custom.filter(s => s.sem == sem);
 
-    // Create a combined list (simple merge, duplicates allowed if names match since we don't have IDs)
     return [...subjects, ...customForSem];
 }
 
-// Helper: Save Semester Data (Used by Admin Dashboard)
+// Helper: Save Semester Data
 function saveSemesterSubjects(sem, subjects) {
     localStorage.setItem(`subjects_sem_${sem}`, JSON.stringify(subjects));
 }
@@ -192,7 +192,6 @@ function togglePrevStats() {
         const history = JSON.parse(localStorage.getItem('gpa_history') || '[]');
         const currentNum = Number(currentSem);
 
-        // Filter out current semester and find the latest calculation
         const otherSemesters = history.filter(item => Number(item.sem) !== currentNum);
 
         const creditsInput = document.getElementById('prev-credits');
@@ -200,18 +199,14 @@ function togglePrevStats() {
         const info = document.getElementById('prev-stats-info');
 
         if (otherSemesters.length > 0) {
-            // Sort by timestamp and get the most recent one
             otherSemesters.sort((a, b) => b.timestamp - a.timestamp);
             const latestCalc = otherSemesters[0];
-
-            // Get credits for the latest semester
             const semSubjects = getSubjects(latestCalc.sem);
             const semCredits = semSubjects.reduce((sum, subj) => sum + subj.credit, 0);
 
             creditsInput.value = semCredits;
             cgpaInput.value = parseFloat(latestCalc.result).toFixed(2);
 
-            // Show which semester this is from
             if (info) {
                 info.textContent = `Latest calculation from Semester ${latestCalc.sem}`;
                 info.style.color = "var(--accent-green)";
@@ -227,42 +222,43 @@ function togglePrevStats() {
     }
 }
 
-// Calculate GPA
-function calculateGPA() {
+// 1. Initiate Calculation (Validate & Open Modal)
+function initiateCalculation() {
     const creditInputs = document.querySelectorAll('.grade-select');
-    let totalCredits = 0;
-    let totalPoints = 0;
     let allFilled = true;
     let firstMissing = null;
-    creditInputs.forEach(input => {
-        // Reset styles first
-        input.style.borderColor = "var(--glass-border)";
 
+    // Validate inputs first
+    creditInputs.forEach(input => {
+        input.style.borderColor = "var(--glass-border)";
         if (input.value === "0" && input.options[input.selectedIndex].text === "Select Grade") {
             allFilled = false;
-            input.style.borderColor = "#ff5252"; // Highlight missing field
+            input.style.borderColor = "#ff5252";
             if (!firstMissing) firstMissing = input;
         }
     });
 
-    // 2. Enforce All-Filled Rule
     if (!allFilled) {
         if (firstMissing) {
             firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
             firstMissing.focus();
         }
-        // Reset Display if not complete
-        document.getElementById('result-sgpa').textContent = "0.00";
-        document.getElementById('result-cgpa').textContent = "0.00";
-        document.getElementById('total-credits-display').textContent = "0";
         return;
     }
 
-    // 3. Calculation Loop (Only runs if allFilled is true)
+    // Open Modal for Student Details
+    openModal(true); // true = calculation mode
+}
+
+// 2. Perform Calculation (Called after Modal Submit)
+function performCalculation() {
+    const creditInputs = document.querySelectorAll('.grade-select');
+    let totalCredits = 0;
+    let totalPoints = 0;
+
     creditInputs.forEach(input => {
         const credit = parseFloat(input.getAttribute('data-credit'));
         const point = parseFloat(input.value);
-
         totalCredits += credit;
         totalPoints += (point * credit);
     });
@@ -286,13 +282,161 @@ function calculateGPA() {
         if (document.getElementById('result-cgpa')) document.getElementById('result-cgpa').textContent = cgpa;
         finalResult = cgpa;
         type = "CGPA";
-    } else {
-        if (document.getElementById('result-cgpa')) document.getElementById('result-cgpa').textContent = sgpa;
     }
 
-    // Save Cumulative Credits for CGPA, otherwise Semester Credits for SGPA
     const savedCredits = (type === "CGPA") ? (totalCredits + (parseFloat(document.getElementById('prev-credits').value) || 0)) : totalCredits;
     saveToHistory(currentSem, finalResult, type, savedCredits);
+
+    // Scroll to result
+    document.querySelector('.card:has(#result-sgpa)').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Modal Logic
+function openModal(isCalculation = false) {
+    const modal = document.getElementById('student-modal');
+    const title = modal.querySelector('.modal-header h2');
+    const submitBtn = modal.querySelector('.btn-download');
+
+    // Pre-fill if exists
+    if (studentDetails.name) document.getElementById('pdf-student-name').value = studentDetails.name;
+    if (studentDetails.rollNo) document.getElementById('pdf-roll-no').value = studentDetails.rollNo;
+
+    if (isCalculation) {
+        title.textContent = "Enter Details to Calculate";
+        submitBtn.textContent = "Calculate Result";
+        submitBtn.onclick = submitDetailsAndCalculate;
+    } else {
+        // Should rarely be reached if flow works correctly, but safe fallback
+        title.textContent = "Enter Details";
+        submitBtn.textContent = "Download PDF";
+        submitBtn.onclick = submitDetailsAndDownload;
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeModal() {
+    document.getElementById('student-modal').style.display = 'none';
+}
+
+// 3. Submit Details & Calculate
+function submitDetailsAndCalculate() {
+    if (!validateStudentDetails()) return;
+
+    closeModal();
+    performCalculation();
+}
+
+// 4. Download Report (Uses stored details)
+function downloadReportDirectly() {
+    const sgpa = document.getElementById('result-sgpa').textContent;
+    if (sgpa === "0.00") {
+        alert("Please calculate your GPA first.");
+        return;
+    }
+
+    if (!studentDetails.name || !studentDetails.rollNo) {
+        // Fallback: If for some reason details aren't there, ask again
+        openModal(false);
+        return;
+    }
+
+    generatePDF(studentDetails.name, studentDetails.rollNo);
+}
+
+// Submit & Download (Fallback for manual trigger)
+function submitDetailsAndDownload() {
+    if (!validateStudentDetails()) return;
+    closeModal();
+    generatePDF(studentDetails.name, studentDetails.rollNo);
+}
+
+function validateStudentDetails() {
+    const nameInput = document.getElementById('pdf-student-name');
+    const rollInput = document.getElementById('pdf-roll-no');
+    const name = nameInput.value.trim();
+    const roll = rollInput.value.trim();
+
+    if (!name) {
+        alert("Please enter Student Name.");
+        nameInput.focus();
+        nameInput.style.borderColor = "#ff5252";
+        return false;
+    }
+    if (!roll) {
+        alert("Please enter Roll Number.");
+        rollInput.focus();
+        rollInput.style.borderColor = "#ff5252";
+        return false;
+    }
+
+    // Store details
+    studentDetails.name = name;
+    studentDetails.rollNo = roll;
+    return true;
+}
+
+function generatePDF(studentName, rollNo) {
+    const semBadge = document.getElementById('semester-badge');
+    if (!semBadge) return;
+
+    const sgpa = document.getElementById('result-sgpa').textContent;
+    const totalCredits = document.getElementById('total-credits-display').textContent;
+
+    const subjectItems = document.querySelectorAll('.subject-card');
+    let tableHtml = '';
+
+    subjectItems.forEach((item) => {
+        const name = item.querySelector('.subject-name').textContent;
+        const code = item.querySelector('.subject-code').textContent;
+        const gradeSelect = item.querySelector('.grade-select');
+        const gradeText = gradeSelect.options[gradeSelect.selectedIndex].text.trim();
+
+        const bgColor = '#ffffff';
+        const borderStyle = 'border-bottom: 1px solid #000;';
+
+        tableHtml += `
+            <tr style="background-color: ${bgColor}; ${borderStyle}">
+                <td style="padding: 12px 15px; text-align: left; color: #333; vertical-align: middle; font-weight: 500;">${code}</td>
+                <td style="padding: 12px 15px; text-align: left; color: #333; vertical-align: middle; text-transform: uppercase;">${name}</td>
+                <td style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333; vertical-align: middle;">${gradeText}</td>
+            </tr>
+        `;
+    });
+
+    const today = new Date();
+    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    const percentage = (parseFloat(sgpa) * 9.5).toFixed(2);
+
+    document.getElementById('report-student-name').textContent = studentName;
+    document.getElementById('report-roll-no').textContent = rollNo;
+    document.getElementById('report-date').textContent = dateStr;
+    document.getElementById('report-table-body').innerHTML = tableHtml;
+    document.getElementById('report-total-credits').textContent = totalCredits;
+    document.getElementById('report-final-gpa').textContent = sgpa;
+    document.getElementById('report-percentage').textContent = percentage + '%';
+
+    const element = document.getElementById('report-template');
+    const originalStyle = element.style.cssText;
+    element.style.cssText = "position: relative; left: 0; top: 0; background: white; color: black; padding: 25px; font-family: 'Inter', sans-serif; width: 750px; line-height: 1.4; display: block; box-sizing: border-box;";
+
+    const opt = {
+        margin: [5, 5, 5, 5],
+        filename: `${studentName.replace(/\s+/g, '_')}_GPA_Report.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 1.8,
+            useCORS: true,
+            letterRendering: true,
+            scrollX: 0,
+            scrollY: 0
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+        element.style.cssText = originalStyle;
+    });
 }
 
 // History
@@ -321,11 +465,6 @@ function renderHistory() {
 
     listContainer.innerHTML = '';
     history.forEach(item => {
-        const sem = Number(item.sem);
-        let regulation = "2023";
-        if (sem <= 2) regulation = "2025";
-        else if (sem >= 7) regulation = "2021";
-
         const div = document.createElement('div');
         div.className = 'card';
         div.style.display = 'flex';
@@ -335,7 +474,7 @@ function renderHistory() {
         div.innerHTML = `
             <div>
                 <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 5px;">${item.date} • ${item.time || ''}</span>
-                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-main);">Semester ${item.sem} • Regulation ${regulation}</h3>
+                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-main);">Semester ${item.sem}</h3>
                 <div style="margin-top: 8px; display: flex; gap: 8px;">
                      <span style="font-size: 0.7rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${item.credits || 0} Credits</span>
                 </div>
@@ -367,7 +506,6 @@ function updateHomePageStats() {
         return;
     }
 
-    // Group by Semester and take the LATEST result for each
     const semesterMap = {};
     history.forEach(item => {
         if (!semesterMap[item.sem] || item.timestamp > semesterMap[item.sem].timestamp) {
@@ -382,125 +520,6 @@ function updateHomePageStats() {
     display.textContent = average;
 }
 
-// Other Utilities
-function openModal() {
-    const sgpa = document.getElementById('result-sgpa').textContent;
-    const totalCredits = document.getElementById('total-credits-display').textContent;
-
-    if (totalCredits === "0" || sgpa === "0.00") {
-        alert("Please calculate your GPA first before downloading the report.");
-        return;
-    }
-    document.getElementById('student-modal').style.display = 'flex';
-}
-
-function closeModal() {
-    document.getElementById('student-modal').style.display = 'none';
-}
-
-function confirmDownload() {
-    const nameInput = document.getElementById('pdf-student-name');
-    const rollInput = document.getElementById('pdf-roll-no');
-
-    const studentName = nameInput.value.trim();
-    const rollNo = rollInput.value.trim();
-
-    if (!studentName) {
-        alert("Please enter Student Name.");
-        nameInput.focus();
-        nameInput.style.borderColor = "#ff5252";
-        return;
-    }
-    if (!rollNo) {
-        alert("Please enter Roll Number.");
-        rollInput.focus();
-        rollInput.style.borderColor = "#ff5252";
-        return;
-    }
-
-    closeModal();
-    downloadReport(studentName, rollNo);
-}
-
-function downloadReport(studentName, rollNo) {
-    const semBadge = document.getElementById('semester-badge');
-    if (!semBadge) return;
-
-    const sem = semBadge.textContent.replace('Semester ', '').trim();
-    const sgpa = document.getElementById('result-sgpa').textContent;
-    const totalCredits = document.getElementById('total-credits-display').textContent;
-
-    // 1. Determine Regulation
-    let regulation = "2023";
-    if (sem <= 2) regulation = "2025";
-    else if (sem >= 7) regulation = "2021";
-
-    // 2. Map Grades/Subjects from DOM
-    const subjectItems = document.querySelectorAll('.subject-card');
-    let tableHtml = '';
-
-    subjectItems.forEach((item, index) => {
-        const name = item.querySelector('.subject-name').textContent;
-        const code = item.querySelector('.subject-code').textContent;
-        const subtitle = item.querySelector('.subject-credits').textContent;
-        const credit = subtitle.split(' ')[0];
-        const gradeSelect = item.querySelector('.grade-select');
-        const gradeText = gradeSelect.options[gradeSelect.selectedIndex].text.trim();
-
-        // Plain white background for all rows
-        const bgColor = '#ffffff';
-        // Add bottom border for divider look
-        const borderStyle = 'border-bottom: 1px solid #eee;';
-
-        tableHtml += `
-            <tr style="background-color: ${bgColor}; ${borderStyle}">
-                <td style="padding: 12px 15px; text-align: left; color: #333; vertical-align: middle; font-weight: 500;">${code}</td>
-                <td style="padding: 12px 15px; text-align: left; color: #333; vertical-align: middle; text-transform: uppercase;">${name}</td>
-                <td style="padding: 12px 15px; text-align: left; font-weight: 600; color: #333; vertical-align: middle;">${gradeText}</td>
-            </tr>
-        `;
-    });
-
-    const today = new Date();
-    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-
-    // Percentage Calculation
-    const percentage = (parseFloat(sgpa) * 9.5).toFixed(2);
-
-    document.getElementById('report-student-name').textContent = studentName;
-    document.getElementById('report-roll-no').textContent = rollNo;
-    document.getElementById('report-date').textContent = dateStr;
-    document.getElementById('report-table-body').innerHTML = tableHtml;
-    document.getElementById('report-total-credits').textContent = totalCredits;
-    document.getElementById('report-final-gpa').textContent = sgpa;
-    document.getElementById('report-percentage').textContent = percentage + '%';
-
-    // 4. Generate PDF
-    const element = document.getElementById('report-template');
-
-    // Temporarily bring it into view for capture to avoid blank PDF issues
-    const originalStyle = element.style.cssText;
-    element.style.cssText = "position: relative; left: 0; top: 0; background: white; color: black; padding: 25px; font-family: 'Inter', sans-serif; width: 750px; line-height: 1.4; display: block; box-sizing: border-box;";
-
-    const opt = {
-        margin: [5, 5, 5, 5],
-        filename: `${studentName.replace(/\s+/g, '_')}_GPA_Report.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-            scale: 1.8,
-            useCORS: true,
-            letterRendering: true,
-            scrollX: 0,
-            scrollY: 0
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(element).save().then(() => {
-        // Restore original off-screen style
-        element.style.cssText = originalStyle;
-    });
-}
 function resetApp() {
     if (confirm('Are you sure you want to reset all data?')) {
         localStorage.clear();
@@ -509,15 +528,11 @@ function resetApp() {
     }
 }
 
-// Legacy Admin Add (Modified to use new persistence if needed, but keeping for compatibility)
-// We will now rely on dashboard.html calling specific logic, but we can keep this for now.
+// Legacy Admin Add
 function addCustomSubject(sem, name, credit, code) {
-    // Determine current list state
     let subjects = getSubjects(sem);
     const newSubj = { name, credit: parseInt(credit), code: code || 'CUSTOM', sem: parseInt(sem) };
     subjects.push(newSubj);
-
-    // Save as override
     saveSemesterSubjects(sem, subjects);
     return true;
 }

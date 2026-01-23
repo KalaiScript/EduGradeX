@@ -324,12 +324,87 @@ input:checked:focus+.slider {
     color: white;
     font-weight: 600;
     border: none;
-    box-shadow: 0 4px 15px rgba(47, 128, 237, 0.3);
+    box-shadow: 0 4px 15px rgba(5, 6, 7, 0.641);
     transition: all 0.3s ease;
 }
 
 .btn-download:hover {
-    background: #276ac4;
+    background: #0b0b0b;
     transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(47, 128, 237, 0.4);
+    box-shadow: 0 6px 25px rgba(9, 9, 9, 0.4);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 600px) {
+    .container {
+        padding: 15px;
+        max-width: 100%;
+    }
+
+    .card {
+        padding: 15px !important;
+        margin-bottom: 15px;
+    }
+
+    /* Adjust result card typography and spacing */
+    #result-sgpa {
+        font-size: 2.5rem !important;
+        margin-bottom: 10px !important;
+    }
+
+    .card h1 {
+        font-size: 1.8rem !important;
+    }
+
+    .card p {
+        margin-bottom: 10px !important;
+        font-size: 0.9rem !important;
+    }
+
+    .card div[style*="margin-top"] {
+        margin-top: 20px !important;
+        padding-top: 15px !important;
+        gap: 20px !important;
+    }
+
+    /* Subject Card: Stack Name and Code/Credits vertical */
+    .subject-card>div {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        width: 100%;
+    }
+
+    .subject-card .subject-code {
+        align-self: flex-start;
+    }
+
+    /* Dashboard List Items */
+    #admin-subject-list .card {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 15px !important;
+    }
+
+    #admin-subject-list .card>div {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    /* Ensure modal fits well on mobile */
+    .modal-content {
+        padding: 20px;
+        margin: 10px;
+        width: 100%;
+    }
+
+    /* Reduce calculate button width on mobile */
+    #calculate-btn {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    h1.page-title {
+        font-size: 1.3rem;
+    }
 }

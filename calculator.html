@@ -109,7 +109,7 @@
 
             <button class="btn btn-secondary"
                 style="font-size: 0.8rem; width: 100%; justify-content: center; margin-top: 20px;"
-                onclick="openModal()">
+                onclick="downloadReportDirectly()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     style="margin-right: 5px;">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -122,9 +122,9 @@
     </div>
 
     <!-- Calculate Button -->
-    <button class="btn btn-primary"
+    <button class="btn btn-primary" id="calculate-btn"
         style="margin-bottom: 30px; max-width: 440px; margin-left: auto; margin-right: auto; display: block;"
-        onclick="calculateGPA()">
+        onclick="initiateCalculation()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             style="margin-right: 8px;">
             <path d="M12 2v20"></path>
@@ -159,7 +159,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-download" onclick="confirmDownload()">Download PDF</button>
+                <button class="btn btn-download" onclick="submitDetailsAndCalculate()">Download PDF</button>
             </div>
         </div>
     </div>
@@ -192,18 +192,18 @@
         <h2 style="margin: 0 0 12px 0; font-size: 1.3rem; font-weight: 700; color: #01040e;">SEMESTER SUBJECTS</h2>
 
         <!-- Table -->
-        <div style="border: 2px solid #1e3a8a; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+        <div style="border: 2px solid #0d0d0e; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr style="background: #1c1c1c;">
+                    <tr style="background: #ffffff; border-bottom: 2px solid #070707;">
                         <th
-                            style="padding: 12px 15px; text-align: left; font-size: 0.8rem; font-weight: 600; color: #ffffff; width: 20%;">
+                            style="padding: 12px 15px; text-align: left; font-size: 0.8rem; font-weight: 600; color: #070707; width: 20%;">
                             Course Code</th>
                         <th
-                            style="padding: 12px 15px; text-align: left; font-size: 0.8rem; font-weight: 600; color: #ffffff; width: 60%;">
+                            style="padding: 12px 15px; text-align: left; font-size: 0.8rem; font-weight: 600; color: #070707; width: 60%;">
                             Course Name</th>
                         <th
-                            style="padding: 12px 15px; text-align: left; font-size: 0.8rem; font-weight: 600; color: #ffffff; width: 20%;">
+                            style="padding: 12px 15px; text-align: left; font-size: 0.8rem; font-weight: 600; color: #070707; width: 20%;">
                             Letter Grade</th>
                     </tr>
                 </thead>
@@ -215,11 +215,11 @@
 
         <!-- Result Breakdown Box -->
         <div
-            style="border: 2px solid #1e3a8a; border-radius: 8px; overflow: hidden; margin-top: 20px; background-color: #fff;">
+            style="border: 2px solid #070707; border-radius: 8px; overflow: hidden; margin-top: 20px; background-color: #fff;">
             <!-- Result Header Bar -->
-            <div style="background: #1e3a8a; padding: 12px 20px;">
+            <div style="background: #ffffff; padding: 12px 20px; border-bottom: 2px solid #070707;">
                 <h3
-                    style="margin: 0; font-size: 1rem; font-weight: 700; color: #ffffff; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+                    style="margin: 0; font-size: 1rem; font-weight: 700; color: #070707; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
                     FINAL RESULT</h3>
             </div>
 
@@ -228,20 +228,20 @@
                 <div style="display: flex; gap: 40px; justify-content: space-around;">
                     <div style="text-align: center;">
                         <label
-                            style="display: block; font-size: 0.75rem; color: #1e3a8a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">TOTAL
+                            style="display: block; font-size: 0.75rem; color: #2f80ed; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">TOTAL
                             CREDITS</label>
                         <strong id="report-total-credits"
                             style="font-size: 1.6rem; font-weight: 800; color: #000;">0</strong>
                     </div>
                     <div style="text-align: center;">
                         <label
-                            style="display: block; font-size: 0.75rem; color: #1e3a8a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">SGPA</label>
+                            style="display: block; font-size: 0.75rem; color: #2f80ed; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">SGPA</label>
                         <strong id="report-final-gpa"
                             style="font-size: 1.6rem; font-weight: 800; color: #000;">0.00</strong>
                     </div>
                     <div style="text-align: center;">
                         <label
-                            style="display: block; font-size: 0.75rem; color: #1e3a8a; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">PERCENTAGE</label>
+                            style="display: block; font-size: 0.75rem; color: #2f80ed; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">PERCENTAGE</label>
                         <strong id="report-percentage"
                             style="font-size: 1.6rem; font-weight: 800; color: #000;">0.00%</strong>
                     </div>
