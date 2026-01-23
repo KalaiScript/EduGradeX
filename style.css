@@ -67,6 +67,10 @@ a {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+.landing-card {
+    margin-top: 50px;
+}
+
 /* Headers */
 h1,
 h2,
@@ -406,5 +410,9 @@ input:checked:focus+.slider {
 
     h1.page-title {
         font-size: 1.3rem;
+    }
+
+    .landing-card {
+        margin-top: 10px !important;
     }
 }
