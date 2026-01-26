@@ -1,4 +1,4 @@
-import { saveResultToFirebase, getStudentResults } from './firebase-config.js';
+import { saveResultToFirebase, getStudentResults, verifyStudentMatch, createStudent } from './firebase-config.js';
 
 // ... (existing code) ...
 
@@ -424,8 +424,16 @@ function closeModal() {
 }
 
 // 3. Submit Details & Calculate
-function submitDetailsAndCalculate() {
+async function submitDetailsAndCalculate() {
     if (!validateStudentDetails()) return;
+
+    // Verify Roll No AND Name
+    const verification = await verifyStudentMatch(studentDetails.rollNo, studentDetails.name);
+
+    if (!verification.isValid) {
+        alert(`Validation Failed: ${verification.error}`);
+        return;
+    }
 
     closeModal();
     performCalculation();
@@ -449,8 +457,18 @@ function downloadReportDirectly() {
 }
 
 // Submit & Download (Fallback for manual trigger)
-function submitDetailsAndDownload() {
+// Submit & Download (Fallback for manual trigger)
+async function submitDetailsAndDownload() {
     if (!validateStudentDetails()) return;
+
+    // Verify Roll No AND Name
+    const verification = await verifyStudentMatch(studentDetails.rollNo, studentDetails.name);
+
+    if (!verification.isValid) {
+        alert(`Validation Failed: ${verification.error}`);
+        return;
+    }
+
     closeModal();
     generatePDF(studentDetails.name, studentDetails.rollNo);
 }
@@ -515,7 +533,7 @@ function validateStudentDetails() {
     return true;
 }
 
-function generatePDF(studentName, rollNo) {
+async function generatePDF(studentName, rollNo) {
     const semBadge = document.getElementById('semester-badge');
     if (!semBadge) return;
 
@@ -547,21 +565,52 @@ function generatePDF(studentName, rollNo) {
     const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
     const percentage = (parseFloat(sgpa) * 9.5).toFixed(2);
 
+    // Get current semester number
+    const semesterText = semBadge.textContent.trim();
+    const currentSem = parseInt(semesterText.replace('Semester ', '').replace('SEM ', '')) || 1;
+
+    // Calculate CGPA from Firebase
+    let cgpa = sgpa; // Default to current SGPA
+    try {
+        const { getStudentResults } = await import('./firebase-config.js');
+        const allResults = await getStudentResults(rollNo);
+
+        if (allResults && allResults.length > 0) {
+            // Calculate average of all semester SGPAs
+            const totalSGPA = allResults.reduce((sum, item) => sum + parseFloat(item.result || 0), 0);
+            cgpa = (totalSGPA / allResults.length).toFixed(2);
+        }
+    } catch (error) {
+        console.warn("Could not fetch Firebase data for CGPA:", error);
+        // Continue with current SGPA as CGPA
+    }
+
+    // Convert year to Roman numerals
+    const romanNumerals = ['I', 'II', 'III', 'IV'];
+    const year = parseInt(studentDetails.year || '1');
+    const yearRoman = romanNumerals[year - 1] || 'I';
+    const section = studentDetails.section || 'A';
+
+    // Combine Year / Branch / Section into single line
+    const academicInfo = `${yearRoman} / CSE / ${section}`;
+
     document.getElementById('report-student-name').textContent = studentName;
     document.getElementById('report-roll-no').textContent = rollNo;
+    document.getElementById('report-academic-info').textContent = academicInfo;
     document.getElementById('report-date').textContent = dateStr;
     document.getElementById('report-table-body').innerHTML = tableHtml;
     document.getElementById('report-total-credits').textContent = totalCredits;
     document.getElementById('report-final-gpa').textContent = sgpa;
+    document.getElementById('report-cgpa').textContent = cgpa;
     document.getElementById('report-percentage').textContent = percentage + '%';
 
     const element = document.getElementById('report-template');
     const originalStyle = element.style.cssText;
-    element.style.cssText = "position: relative; left: 0; top: 0; background: white; color: black; padding: 25px; font-family: 'Inter', sans-serif; width: 750px; line-height: 1.4; display: block; box-sizing: border-box;";
+    element.style.cssText = "position: relative; left: 0; top: 0; background: white; color: black; padding: 25px; font-family: 'Arial', sans-serif; width: 750px; line-height: 1.4; display: block; box-sizing: border-box;";
 
     const opt = {
         margin: [5, 5, 5, 5],
-        filename: `${studentName.replace(/\s+/g, '_')}_GPA_Report.pdf`,
+        filename: `${studentName.replace(/\s+/g, '_')}_Semester_${currentSem}_Report.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
             scale: 1.8,
@@ -577,6 +626,7 @@ function generatePDF(studentName, rollNo) {
         element.style.cssText = originalStyle;
     });
 }
+
 
 // History
 function saveToHistory(sem, result, type, credits) {
@@ -738,6 +788,7 @@ window.saveSemesterSubjects = saveSemesterSubjects;
 window.getSubjects = getSubjects;
 window.renderHistory = renderHistory;
 window.clearHistory = clearHistory;
+window.createStudent = createStudent;
 // Admin specifics
 window.saveSubject = window.saveSubject || null; // Will be defined in admin script if needed, but here we just export what we have
 window.loadAdminSubjects = window.loadAdminSubjects || null;

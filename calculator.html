@@ -124,6 +124,7 @@
                 </svg>
                 Download Report
             </button>
+
         </div>
     </div>
 
@@ -201,21 +202,21 @@
 
     <!-- Hidden Report Template for PDF Generation -->
     <div id="report-template"
-        style="position: absolute; left: -9999px; top: 0; background: white; color: black; padding: 25px; font-family: 'Inter', sans-serif; width: 750px; line-height: 1.4; box-sizing: border-box;">
+        style="position: absolute; left: -9999px; top: 0; background: white; color: black; padding: 25px; font-family: 'Arial', sans-serif; width: 750px; line-height: 1.4; box-sizing: border-box;">
 
         <!-- Header Section -->
         <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
             <p style="margin: 0; font-size: 0.95rem;"><span
-                    style="font-weight: 700; width: 100px; display: inline-block;">Name:</span> <span
+                    style="font-weight: 700; width: 180px; display: inline-block;">Name:</span> <span
                     id="report-student-name" style="font-weight: 500;"></span></p>
             <p style="margin: 0; font-size: 0.95rem;"><span
-                    style="font-weight: 700; width: 100px; display: inline-block;">Roll No:</span> <span
+                    style="font-weight: 700; width: 180px; display: inline-block;">Roll No:</span> <span
                     id="report-roll-no" style="font-weight: 500;"></span></p>
             <p style="margin: 0; font-size: 0.95rem;"><span
-                    style="font-weight: 700; width: 100px; display: inline-block;">Branch:</span> <span
-                    style="font-weight: 500;">Computer Science and Engineering</span></p>
+                    style="font-weight: 700; width: 180px; display: inline-block;">Year / Branch / Section:</span> <span
+                    id="report-academic-info" style="font-weight: 500;"></span></p>
             <p style="margin: 0; font-size: 0.95rem;"><span
-                    style="font-weight: 700; width: 100px; display: inline-block;">Date:</span> <span id="report-date"
+                    style="font-weight: 700; width: 180px; display: inline-block;">Date:</span> <span id="report-date"
                     style="font-weight: 500;"></span></p>
         </div>
 
@@ -225,7 +226,7 @@
         <h2 style="margin: 0 0 12px 0; font-size: 1.3rem; font-weight: 700; color: #01040e;">SEMESTER SUBJECTS</h2>
 
         <!-- Table -->
-        <div style="border: 2px solid #0d0d0e; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+        <div style="border: 2px solid #0d0d0e; border-radius: 10px; overflow: hidden; margin-bottom: 20px;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #ffffff; border-bottom: 2px solid #070707;">
@@ -248,7 +249,7 @@
 
         <!-- Result Breakdown Box -->
         <div
-            style="border: 2px solid #070707; border-radius: 8px; overflow: hidden; margin-top: 20px; background-color: #fff;">
+            style="border: 2px solid #070707; border-radius: 10px; overflow: hidden; margin-top: 20px; background-color: #fff;">
             <!-- Result Header Bar -->
             <div style="background: #ffffff; padding: 12px 20px; border-bottom: 2px solid #070707;">
                 <h3
@@ -258,7 +259,7 @@
 
             <!-- Result Content -->
             <div style="background: #e8eef5; padding: 20px;">
-                <div style="display: flex; gap: 40px; justify-content: space-around;">
+                <div style="display: flex; gap: 30px; justify-content: space-around;">
                     <div style="text-align: center;">
                         <label
                             style="display: block; font-size: 0.75rem; color: #2f80ed; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">TOTAL
@@ -274,6 +275,11 @@
                     </div>
                     <div style="text-align: center;">
                         <label
+                            style="display: block; font-size: 0.75rem; color: #2f80ed; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">CGPA</label>
+                        <strong id="report-cgpa" style="font-size: 1.6rem; font-weight: 800; color: #000;">0.00</strong>
+                    </div>
+                    <div style="text-align: center;">
+                        <label
                             style="display: block; font-size: 0.75rem; color: #2f80ed; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">PERCENTAGE</label>
                         <strong id="report-percentage"
                             style="font-size: 1.6rem; font-weight: 800; color: #000;">0.00%</strong>
@@ -284,7 +290,7 @@
     </div>
 
     <!-- External Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="assets/libs/html2pdf.bundle.min.js"></script>
     <script type="module" src="script.js"></script>
 </body>
 

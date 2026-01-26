@@ -10,7 +10,7 @@
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, getDocs } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, arrayUnion, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
 // --- PASTE YOUR CONFIG HERE ---
 const firebaseConfig = {
@@ -38,27 +38,90 @@ const RESULTS_COLLECTION = "results";
  * @returns {Promise<boolean>} - True if login success
  */
 export async function loginStudent(name, rollNo) {
-    if (!rollNo) return false;
+    if (!rollNo || !name) return false;
 
     const studentRef = doc(db, STUDENTS_COLLECTION, rollNo);
     const snap = await getDoc(studentRef);
 
     if (snap.exists()) {
-        // Student exists, allow login
-        // Optionally verify name match if needed, for now we trust Roll No access as per request
         const data = snap.data();
-        sessionStorage.setItem('res_user', JSON.stringify({
-            name: data.name,
-            rollNo: rollNo,
-            isLoggedIn: true
-        }));
-        return true;
+
+        // Verify BOTH name and roll number match
+        if (data.name === name) {
+            // Both name and roll number match - allow login
+            sessionStorage.setItem('res_user', JSON.stringify({
+                name: data.name,
+                rollNo: rollNo,
+                isLoggedIn: true
+            }));
+            return true;
+        } else {
+            // Roll number exists but name doesn't match
+            console.warn("Name does not match the registered name for this Roll Number.");
+            return false;
+        }
     } else {
-        // User said: "if student roll number are there go this home page otherwie not permit"
-        // So we do NOT auto-create account on login page.
-        // HOWEVER, for testing, we might need a way to seed data.
-        // For now, return false.
+        // Roll number not found in database
         console.warn("Roll Number not found in database.");
+        return false;
+    }
+}
+
+/**
+ * Check if Student Exists
+ */
+/**
+ * Verify Student Identity (Roll No + Name Check)
+ * Priority: Check Name First
+ */
+export async function verifyStudentMatch(rollNo, inputName) {
+    if (!rollNo || !inputName) return { isValid: false, error: "Missing details" };
+
+    // 1. Check if Name Exists (Query)
+    // Note: Firestore queries are case-sensitive by default.
+    // We try to match the exact name entered.
+    const q = query(collection(db, STUDENTS_COLLECTION), where("name", "==", inputName));
+    const nameSnap = await getDocs(q);
+
+    if (nameSnap.empty) {
+        return { isValid: false, error: "Student Name not found in database." };
+    }
+
+    // 2. Name Exists -> Check if Roll No matches any of the docs with this name
+    let rollNoMatch = false;
+    nameSnap.forEach(doc => {
+        if (doc.id === rollNo) {
+            rollNoMatch = true;
+        }
+    });
+
+    if (rollNoMatch) {
+        return { isValid: true };
+    } else {
+        return { isValid: false, error: "Roll Number does not match the registered Name." };
+    }
+}
+
+/**
+ * Create Student (For Testing/Seeding)
+ */
+export async function createStudent(rollNo, name, year, section) {
+    if (!rollNo || !name) return false;
+    const studentRef = doc(db, STUDENTS_COLLECTION, rollNo);
+    try {
+        await setDoc(studentRef, {
+            name: name,
+            id: rollNo, // Store ID inside doc too
+            year: year || "1",
+            section: section || "A",
+            results: {},
+            currentCGPA: "0.00",
+            lastUpdated: new Date().toISOString()
+        }, { merge: true });
+        console.log(`Student ${name} (${rollNo}) created.`);
+        return true;
+    } catch (e) {
+        console.error("Error creating student:", e);
         return false;
     }
 }

@@ -438,4 +438,79 @@ input:checked:focus+.slider {
     .landing-card {
         margin-top: 10px !important;
     }
+
+    /* Mobile Logout Button Positioning */
+    .logout-btn-wrapper {
+        position: static !important;
+        text-align: right !important;
+        margin-bottom: 15px !important;
+    }
+
+    .logout-btn {
+        width: auto !important;
+        padding: 8px 16px !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* Modal Responsive Adjustments */
+    .modal-content {
+        max-width: 95% !important;
+        padding: 25px 20px !important;
+    }
+
+    .modal-header h2 {
+        font-size: 1.3rem !important;
+    }
+
+    /* Stack Year and Section dropdowns vertically on mobile */
+    .modal-body>div[style*="display: flex"] {
+        flex-direction: column !important;
+        gap: 20px !important;
+    }
+
+    .modal-body>div[style*="display: flex"]>div {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+    }
+
+    /* Stack modal buttons vertically */
+    .modal-footer {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    .modal-footer .btn {
+        width: 100% !important;
+    }
+}
+
+/* Desktop Logout Button Styling */
+.logout-btn-wrapper {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
+}
+
+.logout-btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    border-color: #ff5252 !important;
+    color: #ff5252 !important;
+    width: auto;
+}
+
+/* Desktop/Laptop Responsiveness for Dashboard/Admin Pages */
+@media (min-width: 768px) {
+
+    /* Expand container width on larger screens for better table display */
+    body.dashboard-page .container,
+    body.admin-page .container {
+        max-width: 900px;
+    }
+
+    /* General expansion for non-mobile if no specific page class */
+    .container {
+        max-width: 520px;
+    }
 }

@@ -10,10 +10,11 @@
     <meta name="theme-color" content="#2f80ed">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="assets/libs/html2pdf.bundle.min.js"></script>
+
 </head>
 
-<body>
+<body class="dashboard-page">
 
     <div class="container">
         <!-- Header -->
@@ -192,7 +193,8 @@
             }
 
             window.downloadPDF = function () {
-                if (typeof html2pdf === 'undefined') {
+                // Check if library is loaded (on window)
+                if (!window.html2pdf) {
                     alert('PDF library not loaded. Please wait or refresh.');
                     return;
                 }
