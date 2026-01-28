@@ -68,6 +68,20 @@
                         <option value="D">D</option>
                         <option value="E">E</option>
                     </select>
+                    <!-- Filter: Semester -->
+                    <select id="filter-semester" onchange="loadResults()"
+                        style="padding: 8px; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--card-bg); color: var(--text-main); font-size: 0.8rem;">
+                        <option value="">All Semesters</option>
+                        <option value="1">Sem 1</option>
+                        <option value="2">Sem 2</option>
+                        <option value="3">Sem 3</option>
+                        <option value="4">Sem 4</option>
+                        <option value="5">Sem 5</option>
+                        <option value="6">Sem 6</option>
+                        <option value="7">Sem 7</option>
+                        <option value="8">Sem 8</option>
+                    </select>
+
                     <button onclick="loadResults()" class="btn btn-secondary"
                         style="width: auto; padding: 8px 15px; font-size: 0.8rem;">Refresh</button>
 
@@ -86,10 +100,10 @@
                                 <th style="padding: 15px; color: var(--text-muted);">Name</th>
                                 <th style="padding: 15px; color: var(--text-muted);">Roll No</th>
                                 <th style="padding: 15px; color: var(--text-muted);">Year</th>
-                                <th style="padding: 15px; color: var(--text-muted);">Section</th>
-                                <th style="padding: 15px; color: var(--text-muted);">Semester</th>
-                                <th style="padding: 15px; color: var(--text-muted);">SGPA</th>
-                                <th style="padding: 15px; color: var(--text-muted);">CGPA</th>
+                                <th style="padding: 15px; color: var(--text-muted); text-align: center;">Section</th>
+                                <th style="padding: 15px; color: var(--text-muted); text-align: center;">Semester</th>
+                                <th style="padding: 15px; color: var(--text-muted); text-align: center;">SGPA</th>
+                                <th style="padding: 15px; color: var(--text-muted); text-align: center;">CGPA</th>
                                 <th style="padding: 15px; color: var(--text-muted);">Last Updated</th>
                             </tr>
                         </thead>
@@ -112,8 +126,13 @@
                 <input type="hidden" id="edit-index" value="-1">
 
                 <div style="margin-bottom: 15px;">
-                    <label style="font-size: 0.8rem; color: var(--text-muted);">Subject Name / Code</label>
-                    <input type="text" id="new-subj-name" placeholder="e.g. Professional English (HS3151)">
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">Subject Name</label>
+                    <input type="text" id="new-subj-name" placeholder="e.g. Big Data Analytics">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">Subject Code</label>
+                    <input type="text" id="new-subj-code" placeholder="e.g. 21CSF27" style="text-transform: uppercase;">
                 </div>
 
                 <div style="margin-bottom: 20px;">
@@ -322,11 +341,25 @@
                 // Apply Filters
                 const filterYear = document.getElementById('filter-year').value;
                 const filterSection = document.getElementById('filter-section').value;
+                const filterSemester = document.getElementById('filter-semester').value;
 
                 const filteredStudents = students.filter(student => {
                     const matchYear = filterYear ? (student.year == filterYear) : true;
                     const matchSection = filterSection ? (student.section == filterSection) : true;
+
+                    // Optional: If you strictly want to show ONLY students who have data for the filtered semester:
+                    // const matchSem = filterSemester ? (student.results && student.results[`sem_${filterSemester}`]) : true;
+                    // return matchYear && matchSection && matchSem;
+
+                    // For now, let's just filter by year/section, and we'll handle missing sem data in render
                     return matchYear && matchSection;
+                });
+
+                // Sort by Roll Number in ascending order
+                filteredStudents.sort((a, b) => {
+                    const rollA = a.id || '';
+                    const rollB = b.id || '';
+                    return rollA.localeCompare(rollB);
                 });
 
                 tbody.innerHTML = '';
@@ -346,45 +379,102 @@
                         lastUpdate = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     }
 
-                    // Calculate Latest Semester & True CGPA (Average of SGPAs)
-                    let latestSem = '-';
-                    let calculatedCGPA = '0.00';
-                    let sgpaDisplay = student.currentCGPA || '0.00'; // Current "CGPA" stored is actually latest SGPA usually
+                    // Calculate Data Based on Filter
+                    let displaySem = '-';
+                    let displaySGPA = '0.00';
+                    let displayCGPA = '0.00';
+                    let semData = null;
 
+                    // Parse stored results
+                    const sems = [];
                     if (student.results) {
-                        const sems = Object.keys(student.results)
+                        Object.keys(student.results)
                             .filter(k => k.startsWith('sem_'))
-                            .map(k => ({
-                                sem: parseInt(k.split('_')[1]),
-                                sgpa: parseFloat(student.results[k].sgpa || 0),
-                                timestamp: student.results[k].timestamp || ""
-                            }));
+                            .forEach(k => {
+                                sems.push({
+                                    sem: parseInt(k.split('_')[1]),
+                                    sgpa: parseFloat(student.results[k].sgpa || 0),
+                                    timestamp: student.results[k].timestamp || ""
+                                });
+                            });
+                    }
 
+                    // Calculate True CGPA (Average of all available SGPAs) regardless of filter
+                    // If filterSemester is ON, we want Cumulative CGPA UP TO that semester.
+
+                    let relevantSemsForCGPA = sems;
+                    if (filterSemester) {
+                        relevantSemsForCGPA = sems.filter(s => s.sem <= filterSemester);
+
+                        // Edge Case: If user selects Sem 3, but student only has Sem 4 and 5 (unlikely linear progression but possible),
+                        // or if they have NO data <= Sem 3. 
+                        // User said: "if selct 3 sem but 3sem not there in SGPA is - show lastest CGPA"
+                        // If 'relevantSemsForCGPA' is empty (meaning no history <= selected sem), we might want to fallback to overall CGPA 
+                        // or just show matching behavior. 
+                        // However, "Cumulative to Sem X" usually implies Sem X is the cap. 
+                        // If I have Sem 4 data and I ask "What was my CGPA at Sem 2?", it should be 0 (if no Sem 1/2 data) or just Sem 1.
+                        // But if the user means "Show me what I have", let's stick to <= filter logic as it's the standard for "CGPA at Sem X".
+                        // If the resulting array is empty, we defaults to 0.00.
+
+                        // BUT, strict interpretation of "show lastest CGPA" if missing:
+                        // If I filter Sem 3, and I have Sem 1, 2, 4. 
+                        // Sem 3 SGPA -> "-"
+                        // CGPA -> Avg(1, 2). This is "Latest CGPA relative to Sem 3".
+                    }
+
+                    if (relevantSemsForCGPA.length > 0) {
+                        const totalSgpa = relevantSemsForCGPA.reduce((sum, item) => sum + item.sgpa, 0);
+                        displayCGPA = (totalSgpa / relevantSemsForCGPA.length).toFixed(2);
+                    } else if (filterSemester && sems.length > 0) {
+                        // Fallback: If filtered range has NO data, but student HAS data (e.g. Filter Sem 1, but student starts at Sem 3 directly?),
+                        // Should we show nothing? Or overall?
+                        // "if 3 sem not there... show lastest CGPA".
+                        // If I have Sem 4, 5. Filter Sem 3. Cumulative <= 3 is Empty.
+                        // "Latest CGPA" implies overall. 
+                        // Let's stick to the 'relevantSemsForCGPA' logic first as it's cleaner for "History up to X". 
+                        // If empty, it stays 0.00.
+                    }
+
+                    // Determine SGPA/Sem to show
+                    if (filterSemester) {
+                        // Show specific semester data
+                        const specificSem = sems.find(s => s.sem == filterSemester);
+                        if (specificSem) {
+                            displaySem = specificSem.sem;
+                            displaySGPA = specificSem.sgpa.toFixed(2);
+                        } else {
+                            displaySem = filterSemester; // Show we looked for it due to filter
+                            displaySGPA = '-'; // No data
+                        }
+                    } else {
+                        // Default: Show Latest
                         if (sems.length > 0) {
-                            // Sort by timestamp descending (newest first)
+                            // Sems sorted by timestamp desc
+                            // Re-sort to be safe, though likely already sorted if we didn't mutate 'sems' in the filter above (filter creates new array)
                             sems.sort((a, b) => {
                                 const tA = a.timestamp || "";
                                 const tB = b.timestamp || "";
                                 return tB.localeCompare(tA);
                             });
-
-                            latestSem = sems[0].sem;
-                            sgpaDisplay = sems[0].sgpa.toFixed(2);
-
-                            // Calculate Average SGPA
-                            const totalSgpa = sems.reduce((sum, item) => sum + item.sgpa, 0);
-                            calculatedCGPA = (totalSgpa / sems.length).toFixed(2);
+                            displaySem = sems[0].sem;
+                            displaySGPA = sems[0].sgpa.toFixed(2);
                         }
                     }
 
                     tr.innerHTML = `
                         <td style="padding: 15px; color: var(--text-main); font-weight: 500;">${student.name || 'Unknown'}</td>
-                        <td style="padding: 15px; color: var(--primary-color); font-family: monospace;">${student.id}</td> <!-- ID is Roll No -->
+                        <td style="padding: 15px; color: var(--primary-color); font-family: monospace;">
+                            <a href="student-detail.html?roll=${student.id}&sem=${displaySem}&name=${encodeURIComponent(student.name || 'Unknown')}" 
+                               style="color: var(--primary-color); text-decoration: none; cursor: pointer;"
+                               title="Click to view subject details">
+                                ${student.id}
+                            </a>
+                        </td>
                         <td style="padding: 15px; color: var(--text-muted);">${student.year ? student.year + ' yr' : '-'}</td>
-                        <td style="padding: 15px; color: var(--text-muted);">${student.section ? 'Sec ' + student.section : '-'}</td>
-                        <td style="padding: 15px; color: var(--text-muted);">${latestSem}</td>
-                        <td style="padding: 15px; color: var(--text-muted);">${sgpaDisplay}</td>
-                        <td style="padding: 15px; font-weight: bold; color: var(--accent-green);">${calculatedCGPA}</td>
+                        <td style="padding: 15px; color: var(--text-muted); text-align: center;">${student.section ? 'Sec ' + student.section : '-'}</td>
+                        <td style="padding: 15px; color: var(--text-muted); text-align: center;">${displaySem}</td>
+                        <td style="padding: 15px; color: var(--text-muted); text-align: center;">${displaySGPA}</td>
+                        <td style="padding: 15px; font-weight: bold; color: var(--accent-green); text-align: center;">${displayCGPA}</td>
                         <td style="padding: 15px; color: var(--text-muted); font-size: 0.85rem;">${lastUpdate}</td>
                     `;
                     tbody.appendChild(tr);
@@ -452,14 +542,28 @@
                                     </div>
                                 </div>
                                 ${sem == 8 ? '' : `
-                                <div style="display: flex; gap: 10px;">
-                                    <button onclick="editSubject(${index})" style="background: none; border: none; color: var(--text-muted); cursor: pointer;">
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    ${index > 0 ? `
+                                    <button onclick="moveSubjectUp(${index})" style="background: none; border: none; color: var(--text-muted); cursor: pointer;" title="Move Up">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="18 15 12 9 6 15"></polyline>
+                                        </svg>
+                                    </button>
+                                    ` : '<span style="width: 18px;"></span>'}
+                                    ${index < subjects.length - 1 ? `
+                                    <button onclick="moveSubjectDown(${index})" style="background: none; border: none; color: var(--text-muted); cursor: pointer;" title="Move Down">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="6 9 12 15 18 9"></polyline>
+                                        </svg>
+                                    </button>
+                                    ` : '<span style="width: 18px;"></span>'}
+                                    <button onclick="editSubject(${index})" style="background: none; border: none; color: var(--text-muted); cursor: pointer;" title="Edit">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                         </svg>
                                     </button>
-                                    <button onclick="deleteSubject(${index})" style="background: none; border: none; color: #ff5252; cursor: pointer;">
+                                    <button onclick="deleteSubject(${index})" style="background: none; border: none; color: #ff5252; cursor: pointer;" title="Delete">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polyline points="3 6 5 6 21 6"></polyline>
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -476,19 +580,21 @@
             // 2. Save
             window.saveSubject = function () {
                 const sem = document.getElementById('new-subj-sem').value;
-                const name = document.getElementById('new-subj-name').value;
+                const name = document.getElementById('new-subj-name').value.trim();
+                const code = document.getElementById('new-subj-code').value.trim().toUpperCase();
                 const credit = parseInt(document.getElementById('new-subj-credit').value);
                 const index = parseInt(document.getElementById('edit-index').value);
 
                 if (!sem) { alert("Please select a semester first."); return; }
                 if (!name) { alert("Please enter a subject name."); return; }
+                if (!code) { alert("Please enter a subject code."); return; }
 
                 if (window.getSubjects) {
                     let subjects = window.getSubjects(sem);
                     const newSubj = {
                         name: name,
                         credit: credit,
-                        code: name.substring(0, 2).toUpperCase() + 'XXX',
+                        code: code,
                         sem: parseInt(sem)
                     };
 
@@ -514,6 +620,7 @@
                     const subj = subjects[index];
 
                     document.getElementById('new-subj-name').value = subj.name;
+                    document.getElementById('new-subj-code').value = subj.code || '';
                     document.getElementById('new-subj-credit').value = subj.credit;
 
                     document.getElementById('edit-index').value = index;
@@ -525,7 +632,33 @@
                 }
             }
 
-            // 4. Delete
+            // 4. Move Subject Up
+            window.moveSubjectUp = function (index) {
+                if (index <= 0) return; // Already at top
+                const sem = document.getElementById('new-subj-sem').value;
+                if (window.getSubjects && window.saveSemesterSubjects) {
+                    let subjects = window.getSubjects(sem);
+                    // Swap with previous subject
+                    [subjects[index - 1], subjects[index]] = [subjects[index], subjects[index - 1]];
+                    window.saveSemesterSubjects(sem, subjects);
+                    window.loadAdminSubjects();
+                }
+            }
+
+            // 5. Move Subject Down
+            window.moveSubjectDown = function (index) {
+                const sem = document.getElementById('new-subj-sem').value;
+                if (window.getSubjects && window.saveSemesterSubjects) {
+                    let subjects = window.getSubjects(sem);
+                    if (index >= subjects.length - 1) return; // Already at bottom
+                    // Swap with next subject
+                    [subjects[index], subjects[index + 1]] = [subjects[index + 1], subjects[index]];
+                    window.saveSemesterSubjects(sem, subjects);
+                    window.loadAdminSubjects();
+                }
+            }
+
+            // 6. Delete
             window.deleteSubject = function (index) {
                 if (confirm("Are you sure you want to delete this subject?")) {
                     const sem = document.getElementById('new-subj-sem').value;
@@ -538,9 +671,10 @@
                 }
             }
 
-            // 5. Reset
+            // 7. Reset
             window.resetForm = function () {
                 document.getElementById('new-subj-name').value = '';
+                document.getElementById('new-subj-code').value = '';
                 document.getElementById('new-subj-credit').value = '3';
                 document.getElementById('edit-index').value = '-1';
 

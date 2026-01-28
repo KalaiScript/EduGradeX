@@ -158,12 +158,14 @@ export async function loginAdmin(username, password) {
  * @param {string} sgpa 
  * @param {string} cgpa 
  * @param {number} totalCredits 
+ * @param {string} year
+ * @param {string} section
+ * @param {Array} subjects - Array of subject objects with code, name, grade, credit
  */
-export async function saveResultToFirebase(rollNo, sem, sgpa, cgpa, totalCredits, year, section) {
+export async function saveResultToFirebase(rollNo, sem, sgpa, cgpa, totalCredits, year, section, subjects = []) {
     if (!rollNo) return;
 
-    // We store results in a subcollection or a main 'results' collection.
-    // Let's store in the 'students' document itself to keep it atomic and easy to query for CGPA.
+    // We store results in the 'students' document itself to keep it atomic and easy to query for CGPA.
 
     const studentRef = doc(db, STUDENTS_COLLECTION, rollNo);
 
@@ -175,7 +177,8 @@ export async function saveResultToFirebase(rollNo, sem, sgpa, cgpa, totalCredits
             [`results.sem_${sem}`]: {
                 sgpa: sgpa,
                 credits: totalCredits,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                subjects: subjects // NEW: Store subject details
             },
             currentCGPA: cgpa,
             lastUpdated: new Date().toISOString()
@@ -185,7 +188,7 @@ export async function saveResultToFirebase(rollNo, sem, sgpa, cgpa, totalCredits
         if (section) updatePayload.section = section;
 
         await updateDoc(studentRef, updatePayload);
-        console.log("Result saved to Firebase");
+        console.log("Result saved to Firebase with subject details");
     } catch (error) {
         console.error("Error saving result:", error);
         alert("Failed to save result online. Please check internet connection.");
@@ -193,19 +196,48 @@ export async function saveResultToFirebase(rollNo, sem, sgpa, cgpa, totalCredits
 }
 
 /**
- * Get All Results (For Admin)
+ * Get All Results (For Admin) - OPTIMIZED
+ * Only fetches students who have calculation results
  */
 export async function getAllStudentResults() {
     try {
-        const querySnapshot = await getDocs(collection(db, STUDENTS_COLLECTION));
+        const studentsRef = collection(db, STUDENTS_COLLECTION);
+
+        // Query only students who have a currentCGPA greater than 0
+        // This filters out students without any calculations
+        const q = query(studentsRef, where("currentCGPA", ">", "0.00"));
+
+        const querySnapshot = await getDocs(q);
         const students = [];
         querySnapshot.forEach((doc) => {
-            students.push({ id: doc.id, ...doc.data() });
+            const data = doc.data();
+            // Additional check: only include if they have actual results
+            if (data.results && Object.keys(data.results).length > 0) {
+                students.push({ id: doc.id, ...data });
+            }
         });
+
+        console.log(`Loaded ${students.length} students with results (optimized query)`);
         return students;
     } catch (error) {
         console.error("Error fetching students:", error);
-        return [];
+        // Fallback: if the query fails (e.g., missing index), load all and filter client-side
+        try {
+            const querySnapshot = await getDocs(collection(db, STUDENTS_COLLECTION));
+            const students = [];
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                // Only include students with results
+                if (data.results && Object.keys(data.results).length > 0) {
+                    students.push({ id: doc.id, ...data });
+                }
+            });
+            console.log(`Loaded ${students.length} students (fallback filter)`);
+            return students;
+        } catch (fallbackError) {
+            console.error("Fallback also failed:", fallbackError);
+            return [];
+        }
     }
 }
 
@@ -236,7 +268,8 @@ export async function getStudentResults(rollNo) {
                     type: "SGPA", // Default to SGPA for history display
                     credits: val.credits || 0,
                     timestamp: val.timestamp ? new Date(val.timestamp).getTime() : 0,
-                    date: val.timestamp ? new Date(val.timestamp).toLocaleDateString() : 'Unknown'
+                    date: val.timestamp ? new Date(val.timestamp).toLocaleDateString() : 'Unknown',
+                    subjects: val.subjects || [] // NEW: Include subject details
                 });
             }
             return history;
@@ -261,3 +294,72 @@ export function logout() {
     sessionStorage.removeItem('res_user');
     window.location.href = 'login.html';
 }
+
+/**
+ * Subject Management Functions (Firebase Sync)
+ */
+
+const SUBJECTS_COLLECTION = "Subjects";
+
+/**
+ * Save subjects for a specific semester to Firebase
+ * @param {number} sem - Semester number (1-8)
+ * @param {Array} subjects - Array of subject objects
+ */
+export async function saveSubjectsToFirebase(sem, subjects) {
+    try {
+        const subjectDocRef = doc(db, SUBJECTS_COLLECTION, `sem_${sem}`);
+        await setDoc(subjectDocRef, {
+            semester: sem,
+            subjects: subjects,
+            lastUpdated: new Date().toISOString()
+        });
+
+        // Also save to localStorage as cache
+        localStorage.setItem(`subjects_sem_${sem}`, JSON.stringify(subjects));
+
+        console.log(`Subjects for semester ${sem} saved to Firebase`);
+        return true;
+    } catch (error) {
+        console.error("Error saving subjects to Firebase:", error);
+        // Fallback to localStorage only
+        localStorage.setItem(`subjects_sem_${sem}`, JSON.stringify(subjects));
+        return false;
+    }
+}
+
+/**
+ * Get subjects for a specific semester from Firebase
+ * @param {number} sem - Semester number (1-8)
+ * @returns {Promise<Array>} - Array of subjects
+ */
+export async function getSubjectsFromFirebase(sem) {
+    try {
+        const subjectDocRef = doc(db, SUBJECTS_COLLECTION, `sem_${sem}`);
+        const docSnap = await getDoc(subjectDocRef);
+
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const subjects = data.subjects || [];
+
+            // Update localStorage cache
+            localStorage.setItem(`subjects_sem_${sem}`, JSON.stringify(subjects));
+
+            return subjects;
+        }
+
+        // If no Firebase data, try localStorage
+        const localData = localStorage.getItem(`subjects_sem_${sem}`);
+        if (localData) {
+            return JSON.parse(localData);
+        }
+
+        return [];
+    } catch (error) {
+        console.error("Error fetching subjects from Firebase:", error);
+        // Fallback to localStorage
+        const localData = localStorage.getItem(`subjects_sem_${sem}`);
+        return localData ? JSON.parse(localData) : [];
+    }
+}
+

@@ -1,4 +1,4 @@
-import { saveResultToFirebase, getStudentResults, verifyStudentMatch, createStudent } from './firebase-config.js';
+import { saveResultToFirebase, getStudentResults, verifyStudentMatch, createStudent, saveSubjectsToFirebase, getSubjectsFromFirebase } from './firebase-config.js';
 
 // ... (existing code) ...
 
@@ -161,43 +161,61 @@ function selectSemester(sem) {
     window.location.href = `calculator.html?sem=${sem}`;
 }
 
+// Expose functions globally for dashboard.html
+window.getSubjects = getSubjects;
+window.saveSemesterSubjects = saveSemesterSubjects;
+
 // Helper: Get Subjects (LS Override > Default + Custom Legacy)
-function getSubjects(sem) {
+// Helper: Get Subjects (Firebase-first, localStorage fallback)
+async function getSubjects(sem) {
     // 0. Static Override for Semester 8 (Lock to 12-credit Project)
     if (sem == 8) {
         return subjectData[8];
     }
 
-    // 1. Check for full semester override (if user has edited/deleted items via Admin)
+    // 1. Try Firebase first
+    try {
+        const firebaseSubjects = await getSubjectsFromFirebase(sem);
+        if (firebaseSubjects && firebaseSubjects.length > 0) {
+            return firebaseSubjects;
+        }
+    } catch (e) {
+        console.log('Firebase fetch failed, using localStorage');
+    }
+
+    // 2. Fallback to localStorage
     const override = localStorage.getItem(`subjects_sem_${sem}`);
     if (override) {
         return JSON.parse(override);
     }
 
-    // 2. Else use Default Data
+    // 3. Use Default Data
     let subjects = subjectData[sem] ? [...subjectData[sem]] : [];
 
-    // 3. Merge with 'custom_subjects' (Legacy add method support)
+    // 4. Merge with 'custom_subjects' (Legacy support)
     const custom = JSON.parse(localStorage.getItem('custom_subjects') || '[]');
     const customForSem = custom.filter(s => s.sem == sem);
 
     return [...subjects, ...customForSem];
 }
 
-// Helper: Save Semester Data
-function saveSemesterSubjects(sem, subjects) {
+// Helper: Save Semester Data (Firebase + localStorage)
+async function saveSemesterSubjects(sem, subjects) {
+    // Save to Firebase (cloud sync)
+    await saveSubjectsToFirebase(sem, subjects);
+    // Also save to localStorage as cache  
     localStorage.setItem(`subjects_sem_${sem}`, JSON.stringify(subjects));
 }
 
 // Initialization
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => { // Made async
     // Check if we are on calculator.html
     const params = new URLSearchParams(window.location.search);
     const semParam = params.get('sem');
 
     if (semParam && document.getElementById('subject-list')) {
         currentSem = parseInt(semParam);
-        loadSubjects(currentSem);
+        await loadSubjects(currentSem); // Now async
         document.getElementById('semester-badge').textContent = `Semester ${currentSem}`;
     }
 
@@ -210,10 +228,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (toggle) toggle.checked = false;
 });
 
-// Load Subjects
-function loadSubjects(sem) {
+// Load Subjects (Async for Firebase fetch)
+async function loadSubjects(sem) {
     const listContainer = document.getElementById('subject-list');
-    const subjects = getSubjects(sem);
+    const subjects = await getSubjects(sem); // Await Firebase fetch
 
     listContainer.innerHTML = '';
 
@@ -238,7 +256,7 @@ function loadSubjects(sem) {
                 <span class="subject-code" style="background-color: rgba(47, 128, 237, 0.1); color: var(--primary-color); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">${subj.code || 'CODE'}</span>
             </div>
             
-            <select class="grade-select" data-credit="${subj.credit}" onchange="this.style.borderColor='var(--glass-border)'">
+            <select class="grade-select" data-credit="${subj.credit}" data-code="${subj.code || 'N/A'}" data-name="${subj.name}" onchange="this.style.borderColor='var(--glass-border)'">
                 <option value="0" disabled selected>Select Grade</option>
                 <option value="10">O </option>
                 <option value="9">A+ </option>
@@ -326,12 +344,26 @@ function performCalculation() {
     const creditInputs = document.querySelectorAll('.grade-select');
     let totalCredits = 0;
     let totalPoints = 0;
+    const subjectsArray = []; // NEW: Collect subject details
 
     creditInputs.forEach(input => {
         const credit = parseFloat(input.getAttribute('data-credit'));
         const point = parseFloat(input.value);
+        const subjectCode = input.getAttribute('data-code') || 'N/A';
+        const subjectName = input.getAttribute('data-name') || 'Unknown Subject';
+        const gradeText = input.options[input.selectedIndex].text; // e.g., "O", "A+"
+
         totalCredits += credit;
         totalPoints += (point * credit);
+
+        // Store subject details
+        subjectsArray.push({
+            code: subjectCode,
+            name: subjectName,
+            grade: gradeText,
+            credit: credit,
+            gradePoint: point
+        });
     });
 
     const sgpa = totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : "0.00";
@@ -356,7 +388,7 @@ function performCalculation() {
     }
 
     const savedCredits = (type === "CGPA") ? (totalCredits + (parseFloat(document.getElementById('prev-credits').value) || 0)) : totalCredits;
-    saveToHistory(currentSem, finalResult, type, savedCredits);
+    saveToHistory(currentSem, finalResult, type, savedCredits, studentDetails.rollNo, studentDetails.name, studentDetails.year, studentDetails.section);
 
     // Save to Firebase (Online Sync)
     // Save to Firebase (Online Sync)
@@ -387,7 +419,8 @@ function performCalculation() {
             cgpaToSend,
             savedCredits,
             studentDetails.year,
-            studentDetails.section
+            studentDetails.section,
+            subjectsArray // NEW: Pass subjects array
         );
     }
 
@@ -629,21 +662,35 @@ async function generatePDF(studentName, rollNo) {
 
 
 // History
-function saveToHistory(sem, result, type, credits) {
+// History
+function saveToHistory(sem, result, type, credits, resultRollNo, resultName, year, section) {
     const now = new Date();
     // Get current user for binding
     const userSession = sessionStorage.getItem('res_user');
-    const rollNo = userSession ? JSON.parse(userSession).rollNo : 'anonymous';
+    let sessionRollNo = 'anonymous';
+    if (userSession) {
+        sessionRollNo = JSON.parse(userSession).rollNo;
+    }
+
+    // PRIORITY: Use valid resultRollNo if passed, then global studentDetails, then session
+    const rollNo = resultRollNo || (typeof studentDetails !== 'undefined' ? studentDetails.rollNo : "") || sessionRollNo;
+    const name = resultName || (typeof studentDetails !== 'undefined' ? studentDetails.name : "") || "";
 
     const historyItem = {
         date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-        sem: sem, result: result, type: type, credits: credits, timestamp: Date.now(),
-        rollNo: studentDetails.rollNo || rollNo, // Prefer input rollNo, fallback to session
-        name: studentDetails.name || '',
-        year: studentDetails.year || '',
-        section: studentDetails.section || ''
+        sem: sem,
+        result: result,
+        type: type,
+        credits: credits,
+        timestamp: Date.now(),
+        rollNo: rollNo, // The student whose SGPA was calculated
+        name: name,
+        year: year || (typeof studentDetails !== 'undefined' ? studentDetails.year : "") || "",
+        section: section || (typeof studentDetails !== 'undefined' ? studentDetails.section : "") || "",
+        performedBy: sessionRollNo // Track who performed the calculation
     };
+
     let history = JSON.parse(localStorage.getItem('gpa_history') || '[]');
     history.unshift(historyItem);
     if (history.length > 50) history.pop();
@@ -660,12 +707,19 @@ function renderHistory() {
 
     let history = JSON.parse(localStorage.getItem('gpa_history') || '[]');
 
-    // Use legacy items (no rollNo) if user is not logged in, or strictly match if logged in
+    // Filter history to show calculations performed BY the current logged-in user
     const filteredHistory = history.filter(item => {
-        return true; // Show all history on device for transparency
-        // if (!currentUser) return true; 
-        // if (!item.rollNo) return true; 
-        // return item.rollNo === currentUser;
+        if (item.hidden) return false; // Filter out soft-deleted items
+
+        // If user is logged in, show calculations PERFORMED BY them
+        if (currentUser) {
+            // Check who performed the calculation (new field) or fallback to rollNo for legacy items
+            const performer = item.performedBy || item.rollNo;
+            return performer === currentUser;
+        }
+
+        // If no user is logged in, show all non-hidden items (legacy support)
+        return true;
     });
 
     if (filteredHistory.length === 0) {
@@ -714,8 +768,12 @@ function renderHistory() {
 }
 
 function clearHistory() {
-    if (confirm('Clear all history logs? This will hide current results from this view.')) {
-        localStorage.removeItem('gpa_history');
+    if (confirm('Clear all history logs? This will hide current results from this view but keep your Final Score.')) {
+        // Soft Delete: Mark all current items as hidden
+        let history = JSON.parse(localStorage.getItem('gpa_history') || '[]');
+        history.forEach(item => item.hidden = true);
+        localStorage.setItem('gpa_history', JSON.stringify(history));
+
         localStorage.setItem('history_cleared_at', Date.now()); // Mark clear time
         renderHistory();
         updateHomePageStats();
@@ -723,18 +781,45 @@ function clearHistory() {
 }
 
 // Home Page Stats
-function updateHomePageStats() {
+async function updateHomePageStats() {
     const display = document.getElementById('total-cgpa-display');
     if (!display) return;
 
-    let history = JSON.parse(localStorage.getItem('gpa_history') || '[]');
-
-    // Filter by User
+    // Get current user
     const userSession = sessionStorage.getItem('res_user');
     const currentUser = userSession ? JSON.parse(userSession).rollNo : null;
 
+    if (!currentUser) {
+        display.textContent = "0.00";
+        return;
+    }
+
+    try {
+        // Fetch results from Firebase (source of truth)
+        const results = await getStudentResults(currentUser);
+
+        if (!results || results.length === 0) {
+            display.textContent = "0.00";
+            return;
+        }
+
+        // Calculate CGPA as average of all semester SGPAs
+        const totalSGPA = results.reduce((sum, item) => sum + parseFloat(item.result || 0), 0);
+        const cgpa = (totalSGPA / results.length).toFixed(2);
+
+        display.textContent = cgpa;
+    } catch (error) {
+        console.error("Error fetching CGPA from Firebase:", error);
+        // Fallback to local storage if Firebase fails
+        fallbackToLocalCGPA(display, currentUser);
+    }
+}
+
+// Fallback function using local storage
+function fallbackToLocalCGPA(display, currentUser) {
+    let history = JSON.parse(localStorage.getItem('gpa_history') || '[]');
+
     const userHistory = history.filter(item => {
-        if (!currentUser) return true;
         if (!item.rollNo) return true; // Include legacy
         return item.rollNo === currentUser;
     });

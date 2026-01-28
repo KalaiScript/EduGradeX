@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Details | CGPA Calculator</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body style="padding: 20px;">
+
+    <div class="container" style="max-width: 900px;">
+        <!-- Header Card -->
+        <div class="card" style="padding: 30px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1 style="color: var(--primary-color); margin: 0;">Student Details</h1>
+                <button onclick="window.history.back()" class="btn btn-secondary"
+                    style="width: auto; padding: 8px 20px;">
+                    ← Back to Dashboard
+                </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 5px 0;">Student Name</p>
+                    <p id="student-name" style="font-weight: 600; font-size: 1.1rem; margin: 0;"></p>
+                </div>
+                <div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 5px 0;">Roll Number</p>
+                    <p id="student-roll"
+                        style="font-weight: 600; font-size: 1.1rem; color: var(--primary-color); margin: 0; font-family: monospace;">
+                    </p>
+                </div>
+                <div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 5px 0;">Semester</p>
+                    <p id="student-sem" style="font-weight: 600; font-size: 1.1rem; margin: 0;"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subjects Table Card -->
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <h2 style="margin: 0; font-size: 1.2rem;">Subject-wise Grades</h2>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: rgba(255,255,255,0.05); text-align: left;">
+                            <th style="padding: 15px; color: var(--text-muted);">Subject Code</th>
+                            <th style="padding: 15px; color: var(--text-muted);">Subject Name</th>
+                            <th style="padding: 15px; color: var(--text-muted); text-align: center;">Grade</th>
+                            <th style="padding: 15px; color: var(--text-muted); text-align: center;">Credits</th>
+                        </tr>
+                    </thead>
+                    <tbody id="subjects-table-body">
+                        <tr>
+                            <td colspan="4" style="padding: 40px; text-align: center; color: var(--text-muted);">
+                                <div class="loading-spinner" style="margin: 0 auto 10px;"></div>
+                                Loading subject details...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Message if no data -->
+        <div id="no-data-message" style="display: none; text-align: center; padding: 40px;">
+            <p style="color: var(--text-muted); font-size: 1rem;">No subject data available for this semester.</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Subject details are saved when SGPA is calculated.
+                Please calculate SGPA first.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { getStudentResults } from './firebase-config.js';
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const rollNo = urlParams.get('roll');
+        const semester = urlParams.get('sem');
+        const studentName = urlParams.get('name');
+
+        // Display student info
+        document.getElementById('student-name').textContent = decodeURIComponent(studentName || 'Unknown');
+        document.getElementById('student-roll').textContent = rollNo || 'N/A';
+        document.getElementById('student-sem').textContent = semester ? `Semester ${semester}` : 'N/A';
+
+        // Fetch and display subject data
+        async function loadSubjectDetails() {
+            const tbody = document.getElementById('subjects-table-body');
+
+            if (!rollNo || !semester) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #ff5252;">Invalid parameters</td></tr>';
+                return;
+            }
+
+            try {
+                // Get student results from Firebase
+                const results = await getStudentResults(rollNo);
+
+                // Find the specific semester
+                const semResult = results.find(r => r.sem == parseInt(semester));
+
+                if (!semResult) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-muted);">No data found for this semester</td></tr>';
+                    document.getElementById('no-data-message').style.display = 'block';
+                    return;
+                }
+
+                // Check if subject details exist (new feature)
+                if (!semResult.subjects || semResult.subjects.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-muted);">Subject details not available. Calculate SGPA again to store subject data.</td></tr>';
+                    document.getElementById('no-data-message').style.display = 'block';
+                    return;
+                }
+
+                // Display subjects
+                tbody.innerHTML = '';
+                semResult.subjects.forEach((subject, index) => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+
+                    // Grade color based on performance
+                    let gradeColor = 'var(--accent-green)';
+                    if (subject.grade === 'O') gradeColor = '#4CAF50';
+                    else if (subject.grade === 'A+') gradeColor = '#8BC34A';
+                    else if (subject.grade === 'A') gradeColor = '#CDDC39';
+                    else if (subject.grade === 'B+') gradeColor = '#FFC107';
+                    else if (subject.grade === 'B') gradeColor = '#FF9800';
+
+                    tr.innerHTML = `
+                        <td style="padding: 15px; color: var(--primary-color); font-family: monospace; font-weight: 500;">${subject.code}</td>
+                        <td style="padding: 15px; color: var(--text-main);">${subject.name}</td>
+                        <td style="padding: 15px; text-align: center; font-weight: bold; color: ${gradeColor}; font-size: 1.1rem;">${subject.grade}</td>
+                        <td style="padding: 15px; text-align: center; color: var(--text-muted);">${subject.credit}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Add total row
+                const totalCredits = semResult.subjects.reduce((sum, s) => sum + s.credit, 0);
+                const totalRow = document.createElement('tr');
+                totalRow.style.background = 'rgba(255,255,255,0.05)';
+                totalRow.style.fontWeight = '600';
+                totalRow.innerHTML = `
+                    <td style="padding: 15px;" colspan="3">Total Credits</td>
+                    <td style="padding: 15px; text-align: center; color: var(--primary-color); font-size: 1.1rem;">${totalCredits}</td>
+                `;
+                tbody.appendChild(totalRow);
+
+            } catch (error) {
+                console.error('Error loading subject details:', error);
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #ff5252;">Error loading data. Please check your connection.</td></tr>';
+            }
+        }
+
+        // Load on page load
+        loadSubjectDetails();
+    </script>
+
+    <style>
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</body>
+
+</html>
