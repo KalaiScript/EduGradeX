@@ -126,13 +126,13 @@
                 <input type="hidden" id="edit-index" value="-1">
 
                 <div style="margin-bottom: 15px;">
-                    <label style="font-size: 0.8rem; color: var(--text-muted);">Subject Name</label>
-                    <input type="text" id="new-subj-name" placeholder="e.g. Big Data Analytics">
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">Subject Code</label>
+                    <input type="text" id="new-subj-code" placeholder="e.g. 21CSF27" style="text-transform: uppercase;">
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label style="font-size: 0.8rem; color: var(--text-muted);">Subject Code</label>
-                    <input type="text" id="new-subj-code" placeholder="e.g. 21CSF27" style="text-transform: uppercase;">
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">Subject Name</label>
+                    <input type="text" id="new-subj-name" placeholder="e.g. Big Data Analytics">
                 </div>
 
                 <div style="margin-bottom: 20px;">
@@ -484,7 +484,7 @@
             // --- Subject Manager Logic ---
 
             // 1. Render Subjects
-            window.loadAdminSubjects = function () {
+            window.loadAdminSubjects = async function () {
                 const sem = document.getElementById('new-subj-sem').value;
                 const container = document.getElementById('admin-subject-list');
 
@@ -515,7 +515,7 @@
 
                 // Use helper from script.js (accessed via window)
                 if (window.getSubjects) {
-                    const subjects = window.getSubjects(sem);
+                    const subjects = await window.getSubjects(sem); // AWAIT Firebase
                     if (document.getElementById('subject-count')) document.getElementById('subject-count').textContent = `${subjects.length} Subjects`;
 
                     if (container) {
@@ -578,7 +578,7 @@
             }
 
             // 2. Save
-            window.saveSubject = function () {
+            window.saveSubject = async function () {
                 const sem = document.getElementById('new-subj-sem').value;
                 const name = document.getElementById('new-subj-name').value.trim();
                 const code = document.getElementById('new-subj-code').value.trim().toUpperCase();
@@ -590,7 +590,7 @@
                 if (!code) { alert("Please enter a subject code."); return; }
 
                 if (window.getSubjects) {
-                    let subjects = window.getSubjects(sem);
+                    let subjects = await window.getSubjects(sem); // AWAIT Firebase
                     const newSubj = {
                         name: name,
                         credit: credit,
@@ -606,17 +606,17 @@
                         alert("Subject added!");
                     }
 
-                    if (window.saveSemesterSubjects) window.saveSemesterSubjects(sem, subjects);
+                    if (window.saveSemesterSubjects) await window.saveSemesterSubjects(sem, subjects); // AWAIT Firebase
                     window.resetForm();
-                    window.loadAdminSubjects();
+                    await window.loadAdminSubjects(); // AWAIT reload
                 }
             }
 
             // 3. Edit
-            window.editSubject = function (index) {
+            window.editSubject = async function (index) {
                 const sem = document.getElementById('new-subj-sem').value;
                 if (window.getSubjects) {
-                    const subjects = window.getSubjects(sem);
+                    const subjects = await window.getSubjects(sem); // AWAIT Firebase
                     const subj = subjects[index];
 
                     document.getElementById('new-subj-name').value = subj.name;
