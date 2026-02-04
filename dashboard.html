@@ -211,7 +211,9 @@
                     <div>
                         <label style="font-size: 0.8rem; color: var(--text-muted);">Roll Number</label>
                         <input type="text" id="single-roll" placeholder="e.g. 21CSF01"
-                            style="text-transform: uppercase;">
+                            style="text-transform: uppercase;" onchange="fetchStudentDetails()">
+                        <small id="roll-status"
+                            style="font-size: 0.7rem; color: var(--accent-green); height: 15px; display: block;"></small>
                     </div>
                     <div>
                         <label style="font-size: 0.8rem; color: var(--text-muted);">Name</label>
@@ -360,7 +362,7 @@
         <script type="module" src="script.js"></script>
 
         <script type="module">
-            import { getAllStudentResults, createStudent, updateStudentRange, deleteStudentRange } from './firebase-config.js';
+            import { getAllStudentResults, createStudent, updateStudentRange, deleteStudentRange, getStudentDetails } from './firebase-config.js';
 
             // --- Export Functions ---
 
@@ -1006,13 +1008,48 @@
                 reader.readAsText(file);
             }
 
-            // --- Single Student Add Logic ---
+            // --- Add/Update Data Logic ---
+            window.fetchStudentDetails = async function () {
+                const rollNo = document.getElementById('single-roll').value.trim().toUpperCase();
+                if (!rollNo) return;
+
+                // Show loading state if needed
+
+                try {
+                    const student = await getStudentDetails(rollNo);
+                    const btn = document.getElementById('add-single-btn');
+                    const status = document.getElementById('roll-status');
+
+                    if (student) {
+                        // Populate fields
+                        document.getElementById('single-name').value = student.name || '';
+                        document.getElementById('single-year').value = student.year || '1';
+                        document.getElementById('single-section').value = student.section || 'A';
+
+                        // Update UI to show "Edit Mode"
+                        btn.textContent = "Update Student";
+                        btn.classList.add('btn-warning'); // Optional: change color if class exists
+                        if (status) status.textContent = "Student found! Edit details below.";
+                    } else {
+                        // Reset if not found (or keep inputs? Better to clean or leave as partial)
+                        // Choosing to leave inputs so user can add new
+                        btn.textContent = "Add Student";
+                        btn.classList.remove('btn-warning');
+                        if (status) status.textContent = "New Student";
+                    }
+                } catch (e) {
+                    console.error("Error fetching details", e);
+                }
+            }
+
             window.addSingleStudent = async function () {
                 const rollNo = document.getElementById('single-roll').value.trim().toUpperCase();
                 const name = document.getElementById('single-name').value.trim();
                 const year = document.getElementById('single-year').value;
                 const section = document.getElementById('single-section').value;
+
                 const btn = document.getElementById('add-single-btn');
+                const originalText = btn.textContent; // "Add Student" or "Update Student"
 
                 if (!rollNo || !name) {
                     alert("Please enter both Roll Number and Name.");
@@ -1020,24 +1057,39 @@
                 }
 
                 btn.disabled = true;
-                btn.textContent = "Adding...";
+                btn.textContent = "Saving...";
 
                 try {
+                    // createStudent uses setDoc with merge: true, so it handles both Add and Update
                     const success = await createStudent(rollNo, name, year, section);
                     if (success) {
-                        alert(`Student ${name} (${rollNo}) added successfully!`);
+                        // Check context to give correct message
+                        if (originalText.includes("Update")) {
+                            alert(`Student ${name} (${rollNo}) updated successfully!`);
+                        } else {
+                            alert(`Student ${name} (${rollNo}) added successfully!`);
+                        }
+
                         // Clear inputs
                         document.getElementById('single-roll').value = '';
                         document.getElementById('single-name').value = '';
+                        document.getElementById('roll-status').textContent = '';
+                        // Reset Button
+                        btn.textContent = "Add Student";
                     } else {
-                        alert("Failed to add student. Check console for details.");
+                        alert("Failed to save student. Check console for details.");
                     }
                 } catch (e) {
                     console.error(e);
-                    alert("Error adding student.");
+                    alert("Error saving student.");
                 } finally {
                     btn.disabled = false;
-                    btn.textContent = "Add Student";
+                    if (originalText.includes("Update")) {
+                        // If we just updated, after clear it typically goes back to Add mode
+                        btn.textContent = "Add Student";
+                    } else {
+                        btn.textContent = "Add Student";
+                    }
                 }
             }
 

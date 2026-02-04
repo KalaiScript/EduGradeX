@@ -402,6 +402,24 @@ export async function getStudentResults(rollNo) {
     }
 }
 
+/**
+ * Get Student Details (for Edit Mode)
+ */
+export async function getStudentDetails(rollNo) {
+    if (!rollNo) return null;
+    try {
+        const docRef = doc(db, STUDENTS_COLLECTION, rollNo);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data();
+        }
+        return null;
+    } catch (e) {
+        console.error("Error fetching student details:", e);
+        return null;
+    }
+}
+
 // Helper to check session
 export function checkAuth() {
     const user = sessionStorage.getItem('res_user');
