@@ -1,4 +1,4 @@
-import { saveResultToFirebase, getStudentResults, verifyStudentMatch, createStudent, saveSubjectsToFirebase, getSubjectsFromFirebase } from './firebase-config.js';
+import { saveResultToFirebase, getStudentResults, verifyStudentMatch, createStudent, saveSubjectsToFirebase, getSubjectsFromFirebase, getSemesterSettings } from './firebase-config.js';
 
 // ... (existing code) ...
 
@@ -355,7 +355,7 @@ function initiateCalculation() {
 }
 
 // 2. Perform Calculation (Called after Modal Submit)
-function performCalculation() {
+async function performCalculation() {
     const creditInputs = document.querySelectorAll('.grade-select');
     let totalCredits = 0;
     let totalPoints = 0;
@@ -422,21 +422,27 @@ function performCalculation() {
     }
 
     if (targetRollNo) {
-        // We calculate CGPA differently in the helper, but passing what we have is good
-        let sgpaToSend = sgpa;
-        let cgpaToSend = (type === "CGPA") ? finalResult : sgpa; // Rough approx for now
+        // Check if saving is allowed for this semester
+        const settings = await getSemesterSettings();
+        if (settings[currentSem] !== false) {
+            // We calculate CGPA differently in the helper, but passing what we have is good
+            let sgpaToSend = sgpa;
+            let cgpaToSend = (type === "CGPA") ? finalResult : sgpa; // Rough approx for now
 
-        console.log(`Saving result for RollNo: ${targetRollNo}, Sem: ${currentSem}`);
-        saveResultToFirebase(
-            targetRollNo,
-            currentSem,
-            sgpaToSend,
-            cgpaToSend,
-            savedCredits,
-            studentDetails.year,
-            studentDetails.section,
-            subjectsArray // NEW: Pass subjects array
-        );
+            console.log(`Saving result for RollNo: ${targetRollNo}, Sem: ${currentSem}`);
+            saveResultToFirebase(
+                targetRollNo,
+                currentSem,
+                sgpaToSend,
+                cgpaToSend,
+                savedCredits,
+                studentDetails.year,
+                studentDetails.section,
+                subjectsArray // NEW: Pass subjects array
+            );
+        } else {
+            console.log(`Saving to database is disabled for Semester ${currentSem} by Admin.`);
+        }
     }
 
     // Scroll to result
@@ -484,7 +490,7 @@ async function submitDetailsAndCalculate() {
     }
 
     closeModal();
-    performCalculation();
+    await performCalculation();
 }
 
 // 4. Download Report (Uses stored details)

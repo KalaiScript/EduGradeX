@@ -59,6 +59,25 @@
                 Subjects</button>
             <button class="btn btn-secondary" onclick="showSection('students')" id="btn-students">Manage
                 Students</button>
+            <button class="btn btn-secondary" onclick="showSection('settings')" id="btn-settings">System
+                Settings</button>
+        </div>
+
+        <!-- System Settings Section -->
+        <div id="section-settings" style="display: none;">
+            <div class="card">
+                <h3 style="margin-bottom: 15px; font-size: 1rem;">Semester Database Save Control</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">
+                    Enable or disable saving calculation results to Firebase for each semester. 
+                    If OFF, students can still calculate their GPA, but the data will not be stored in the database.
+                </p>
+
+                <div id="semester-toggles-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <!-- Toggles will be rendered here -->
+                </div>
+
+                <button onclick="saveToggles()" class="btn btn-primary" id="save-toggles-btn">Save Settings</button>
+            </div>
         </div>
 
         <!-- Student Results Section -->
@@ -373,7 +392,7 @@
         <script type="module" src="script.js"></script>
 
         <script type="module">
-            import { getAllStudentResults, createStudent, updateStudentRange, deleteStudentRange, getStudentDetails } from './firebase-config.js';
+            import { getAllStudentResults, createStudent, updateStudentRange, deleteStudentRange, getStudentDetails, saveSemesterSettings, getSemesterSettings } from './firebase-config.js';
 
             // --- Export Functions ---
 
@@ -686,16 +705,19 @@
                 document.getElementById('section-results').style.display = section === 'results' ? 'block' : 'none';
                 document.getElementById('section-subjects').style.display = section === 'subjects' ? 'block' : 'none';
                 document.getElementById('section-students').style.display = section === 'students' ? 'block' : 'none';
+                document.getElementById('section-settings').style.display = section === 'settings' ? 'block' : 'none';
 
                 // Button Styles
                 const btnResults = document.getElementById('btn-results');
                 const btnSubjects = document.getElementById('btn-subjects');
                 const btnStudents = document.getElementById('btn-students');
+                const btnSettings = document.getElementById('btn-settings');
 
                 // Reset all
                 if (btnResults) btnResults.className = 'btn btn-secondary';
                 if (btnSubjects) btnSubjects.className = 'btn btn-secondary';
                 if (btnStudents) btnStudents.className = 'btn btn-secondary';
+                if (btnSettings) btnSettings.className = 'btn btn-secondary';
 
                 // Set active
                 if (section === 'results') {
@@ -706,7 +728,77 @@
                     if (window.loadAdminSubjects) window.loadAdminSubjects();
                 } else if (section === 'students') {
                     if (btnStudents) btnStudents.className = 'btn btn-primary';
+                } else if (section === 'settings') {
+                    if (btnSettings) btnSettings.className = 'btn btn-primary';
+                    window.loadToggles();
                 }
+            }
+
+            // --- Toggle Logic ---
+            window.loadToggles = async function () {
+                const container = document.getElementById('semester-toggles-container');
+                container.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Loading settings...</p>';
+
+                const settings = await getSemesterSettings();
+                container.innerHTML = '';
+
+                for (let i = 1; i <= 8; i++) {
+                    const isON = settings[i] !== false; // Default to true if not specified
+                    const div = document.createElement('div');
+                    div.style.background = "rgba(255,255,255,0.05)";
+                    div.style.padding = "15px";
+                    div.style.borderRadius = "10px";
+                    div.style.display = "flex";
+                    div.style.flexDirection = "column";
+                    div.style.alignItems = "center";
+                    div.style.gap = "10px";
+
+                    div.innerHTML = `
+                        <span style="font-weight: 600; font-size: 0.9rem;">Semester ${i}</span>
+                        <label class="switch">
+                            <input type="checkbox" id="sem-toggle-${i}" ${isON ? 'checked' : ''}>
+                            <span class="slider"></span>
+                            <span class="slider-knob"></span>
+                        </label>
+                        <span id="status-${i}" style="font-size: 0.7rem; color: ${isON ? 'var(--accent-green)' : 'var(--text-muted)'}">${isON ? 'ON (Saving)' : 'OFF (Not Saving)'}</span>
+                    `;
+
+                    // Add listener to update text
+                    const checkbox = div.querySelector('input');
+                    checkbox.addEventListener('change', (e) => {
+                        const statusSpan = document.getElementById(`status-${i}`);
+                        if (e.target.checked) {
+                            statusSpan.textContent = "ON (Saving)";
+                            statusSpan.style.color = "var(--accent-green)";
+                        } else {
+                            statusSpan.textContent = "OFF (Not Saving)";
+                            statusSpan.style.color = "var(--text-muted)";
+                        }
+                    });
+
+                    container.appendChild(div);
+                }
+            }
+
+            window.saveToggles = async function () {
+                const btn = document.getElementById('save-toggles-btn');
+                btn.disabled = true;
+                btn.textContent = "Saving...";
+
+                const settings = {};
+                for (let i = 1; i <= 8; i++) {
+                    settings[i] = document.getElementById(`sem-toggle-${i}`).checked;
+                }
+
+                const success = await saveSemesterSettings(settings);
+                if (success) {
+                    alert("Settings saved successfully!");
+                } else {
+                    alert("Failed to save settings.");
+                }
+
+                btn.disabled = false;
+                btn.textContent = "Save Settings";
             }
 
             // 2. Load Results

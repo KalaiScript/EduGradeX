@@ -502,3 +502,49 @@ export async function getSubjectsFromFirebase(sem) {
     }
 }
 
+/**
+ * Semester Settings Management
+ */
+
+const SETTINGS_COLLECTION = "Settings";
+const SEMESTER_SETTINGS_DOC = "semester_calculation";
+
+/**
+ * Save semester settings (ON/OFF)
+ * @param {Object} settings - Object with sem numbers as keys and boolean as values
+ */
+export async function saveSemesterSettings(settings) {
+    try {
+        const settingsRef = doc(db, SETTINGS_COLLECTION, SEMESTER_SETTINGS_DOC);
+        await setDoc(settingsRef, settings, { merge: true });
+        console.log("Semester settings saved to Firebase");
+        return true;
+    } catch (error) {
+        console.error("Error saving semester settings:", error);
+        return false;
+    }
+}
+
+/**
+ * Get semester settings (ON/OFF)
+ * @returns {Promise<Object>} - Object with semester settings
+ */
+export async function getSemesterSettings() {
+    try {
+        const settingsRef = doc(db, SETTINGS_COLLECTION, SEMESTER_SETTINGS_DOC);
+        const snap = await getDoc(settingsRef);
+        if (snap.exists()) {
+            return snap.data();
+        }
+        // Default: All ON if not set
+        const defaults = {};
+        for (let i = 1; i <= 8; i++) defaults[i] = true;
+        return defaults;
+    } catch (error) {
+        console.error("Error fetching semester settings:", error);
+        const defaults = {};
+        for (let i = 1; i <= 8; i++) defaults[i] = true;
+        return defaults;
+    }
+}
+
