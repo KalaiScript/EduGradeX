@@ -39,7 +39,7 @@ EduGradeX is a comprehensive, web-based GPA and CGPA calculation tool designed t
 *   **`history.html`:** Displays a student's past calculation results.
 *   **`script.js`:** Contains the core application logic, UI interactions, and calculation algorithms.
 *   **`firebase-config.js`:** Centralized file managing Firebase initialization and all database queries (CRUD operations).
-*   **`style.css`:** Application styling, themes, and responsiveness wensite..
+*   **`style.css`:** Application styling, themes, and responsiveness website..
 
 ## ⚙️ Setup and Installation
 
