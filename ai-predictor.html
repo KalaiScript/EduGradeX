@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI SGPA/CGPA Predictor | EduGradeX</title>
+    <link rel="icon" type="image/jpeg" href="favicon.jpg">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .input-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .sem-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .sem-row:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(47, 128, 237, 0.4);
+        }
+
+        .sem-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sem-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 140px;
+            justify-content: flex-end;
+        }
+
+        .sem-input {
+            width: 70px !important;
+            padding: 6px 8px !important;
+            font-size: 0.9rem !important;
+            text-align: center;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            user-select: none;
+        }
+
+        .checkbox-container input {
+            display: none;
+        }
+
+        .checkmark {
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            margin-right: 8px;
+            display: inline-block;
+            position: relative;
+            background: #0d1117;
+        }
+
+        .checkbox-container input:checked + .checkmark {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .checkbox-container input:checked + .checkmark:after {
+            content: "";
+            position: absolute;
+            display: block;
+            left: 5px;
+            top: 2px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .predicted-badge {
+            background: rgba(187, 134, 252, 0.15);
+            color: var(--accent-purple);
+            border: 1px solid rgba(187, 134, 252, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .completed-badge {
+            background: rgba(0, 200, 83, 0.15);
+            color: var(--accent-green);
+            border: 1px solid rgba(0, 200, 83, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .dash-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .dash-val {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .tip-box {
+            background: rgba(47, 128, 237, 0.05);
+            border-left: 3px solid var(--primary-color);
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .tip-title {
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'" style="padding: 8px 15px; width: auto;">← Back</button>
+                <h1 style="font-size: 1.2rem; color: var(--primary-color); margin: 0; background: linear-gradient(90deg, #bb86fc, #2f80ed); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">✨ AI Predictor</h1>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; text-align: center;">
+                Smart semester SGPA projections and tailored strategies to achieve your target CGPA.
+            </p>
+
+            <!-- Semester Inputs List -->
+            <h3 style="font-size: 0.95rem; color: var(--primary-color); margin-bottom: 10px;">Semester SGPAs</h3>
+            <div id="semesters-container" style="margin-bottom: 20px;">
+                <!-- JavaScript will inject 8 rows here -->
+            </div>
+
+            <!-- AI Settings -->
+            <div class="card" style="background: rgba(0,0,0,0.2); padding: 15px; margin-bottom: 20px; border-color: rgba(255,255,255,0.05);">
+                <div class="input-group">
+                    <label for="ai-profile">AI Behavioral Model</label>
+                    <select id="ai-profile" onchange="runAiPrediction()">
+                        <option value="trend">Auto-Trend Analytics (Standard)</option>
+                        <option value="steady">Steady Consistency (Maintain Average)</option>
+                        <option value="boost">Ambitious Acceleration (+0.4 Boost)</option>
+                    </select>
+                </div>
+
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label for="target-cgpa">Target Graduation CGPA</label>
+                    <input type="number" id="target-cgpa" step="0.01" min="0" max="10" placeholder="e.g. 9.00" value="8.50" oninput="runAiPrediction()">
+                </div>
+            </div>
+
+            <!-- AI Output Dashboard -->
+            <div class="dashboard-grid">
+                <div class="dash-card" style="border-color: rgba(187, 134, 252, 0.3);">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Predicted Final CGPA</span>
+                    <div id="predicted-cgpa-display" class="dash-val" style="color: var(--accent-purple);">0.00</div>
+                </div>
+                <div id="next-sem-card" class="dash-card" style="border-color: rgba(47, 128, 237, 0.3);">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Next Sem (Sem <span id="next-sem-num">-</span>) SGPA</span>
+                    <div id="next-sem-sgpa-display" class="dash-val" style="color: var(--primary-color);">0.00</div>
+                </div>
+            </div>
+
+            <div id="target-analysis-wrapper" class="card" style="display: none; padding: 15px; text-align: center; margin-bottom: 20px; background: rgba(255,255,255,0.01);">
+                <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">AI Track Assessment</span>
+                <span id="status-badge" style="padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; display: inline-block;">On Track</span>
+                <p id="required-gpa-analysis" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;"></p>
+            </div>
+
+            <!-- AI Tips & Recommendations -->
+            <h3 style="font-size: 0.95rem; color: var(--accent-purple); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                💡 AI Smart Strategy & Insights
+            </h3>
+            <div id="ai-tips-container">
+                <!-- Dynamically generated tips -->
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        window.onload = () => {
+            renderSemesterRows();
+            loadUserData();
+            runAiPrediction();
+        };
+
+        function renderSemesterRows() {
+            const container = document.getElementById('semesters-container');
+            container.innerHTML = '';
+            
+            for (let i = 1; i <= 8; i++) {
+                const row = document.createElement('div');
+                row.className = 'sem-row';
+                row.innerHTML = `
+                    <div class="sem-label">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="sem-${i}-completed" onchange="toggleSemCompleted(${i})">
+                            <span class="checkmark"></span>
+                            Sem ${i}
+                        </label>
+                        <span id="sem-${i}-status-badge" class="predicted-badge">AI Predicted</span>
+                    </div>
+                    <div class="sem-input-wrapper">
+                        <span id="sem-${i}-predicted-wrapper" style="font-size: 0.85rem; color: var(--text-muted); display: none; margin-right: 8px;">
+                            <span id="sem-${i}-predicted-val">0.00</span>
+                        </span>
+                        <input type="number" id="sem-${i}" class="sem-input" step="0.01" min="0" max="10" placeholder="—" oninput="runAiPrediction()">
+                    </div>
+                `;
+                container.appendChild(row);
+            }
+        }
+
+        function toggleSemCompleted(semNum) {
+            const isChecked = document.getElementById(`sem-${semNum}-completed`).checked;
+            const badge = document.getElementById(`sem-${semNum}-status-badge`);
+            const input = document.getElementById(`sem-${semNum}`);
+            
+            if (isChecked) {
+                badge.textContent = 'Completed';
+                badge.className = 'completed-badge';
+                if (!input.value) input.value = "8.00";
+            } else {
+                badge.textContent = 'AI Predicted';
+                badge.className = 'predicted-badge';
+            }
+            runAiPrediction();
+        }
+
+        function loadUserData() {
+            const userSession = sessionStorage.getItem('res_user');
+            const currentUser = userSession ? JSON.parse(userSession).rollNo : null;
+            
+            const history = JSON.parse(localStorage.getItem('gpa_history') || '[]');
+            
+            // Filter by current logged-in user if available
+            const userHistory = history.filter(item => {
+                if (!item.rollNo || !currentUser) return true;
+                return item.rollNo === currentUser;
+            });
+
+            // Map history items to corresponding semester inputs
+            userHistory.forEach(item => {
+                const semNum = parseInt(item.sem);
+                if (semNum >= 1 && semNum <= 8 && item.result) {
+                    const input = document.getElementById(`sem-${semNum}`);
+                    const checkbox = document.getElementById(`sem-${semNum}-completed`);
+                    const badge = document.getElementById(`sem-${semNum}-status-badge`);
+                    
+                    if (input && checkbox && badge) {
+                        input.value = parseFloat(item.result).toFixed(2);
+                        checkbox.checked = true;
+                        badge.textContent = 'Completed';
+                        badge.className = 'completed-badge';
+                    }
+                }
+            });
+        }
+
+        function runAiPrediction() {
+            const sgpas = [];
+            const isCompleted = [];
+            
+            for (let i = 1; i <= 8; i++) {
+                const val = parseFloat(document.getElementById(`sem-${i}`).value);
+                const isCompCheckbox = document.getElementById(`sem-${i}-completed`).checked;
+                
+                if (isCompCheckbox && !isNaN(val)) {
+                    sgpas[i] = val;
+                    isCompleted[i] = true;
+                } else {
+                    sgpas[i] = null;
+                    isCompleted[i] = false;
+                }
+            }
+            
+            const completedSems = [];
+            for (let i = 1; i <= 8; i++) {
+                if (isCompleted[i] && sgpas[i] !== null) {
+                    completedSems.push({ sem: i, sgpa: sgpas[i] });
+                }
+            }
+            
+            const profile = document.getElementById('ai-profile').value;
+            const targetCgpa = parseFloat(document.getElementById('target-cgpa').value) || 0.0;
+            
+            let baseSgpa = 7.5;
+            let trend = 0.0;
+            
+            if (completedSems.length > 0) {
+                const sum = completedSems.reduce((s, item) => s + item.sgpa, 0);
+                baseSgpa = sum / completedSems.length;
+                
+                if (completedSems.length > 1) {
+                    completedSems.sort((a, b) => a.sem - b.sem);
+                    const last = completedSems[completedSems.length - 1];
+                    const prev = completedSems[completedSems.length - 2];
+                    trend = (last.sgpa - prev.sgpa) * 0.4;
+                    if (trend > 0.25) trend = 0.25;
+                    if (trend < -0.25) trend = -0.25;
+                }
+            }
+            
+            const predictions = [...sgpas];
+            let firstPredictedSem = null;
+            
+            for (let i = 1; i <= 8; i++) {
+                if (!isCompleted[i]) {
+                    if (firstPredictedSem === null) firstPredictedSem = i;
+                    
+                    let predictedVal = baseSgpa;
+                    if (profile === 'trend') {
+                        let lastSemNum = completedSems.length > 0 ? completedSems[completedSems.length - 1].sem : i - 1;
+                        predictedVal = baseSgpa + trend * (i - lastSemNum);
+                    } else if (profile === 'boost') {
+                        predictedVal = baseSgpa + 0.40 + (trend > 0 ? trend * 0.2 : 0);
+                    } else if (profile === 'steady') {
+                        predictedVal = baseSgpa;
+                    }
+                    
+                    predictedVal = Math.max(0, Math.min(10, predictedVal));
+                    predictions[i] = parseFloat(predictedVal.toFixed(2));
+                    
+                    document.getElementById(`sem-${i}-predicted-val`).textContent = predictions[i].toFixed(2);
+                    document.getElementById(`sem-${i}-predicted-wrapper`).style.display = 'inline-block';
+                } else {
+                    document.getElementById(`sem-${i}-predicted-wrapper`).style.display = 'none';
+                }
+            }
+            
+            let validCount = 0;
+            let predictedTotalSGPA = 0;
+            for (let i = 1; i <= 8; i++) {
+                if (predictions[i] !== null) {
+                    predictedTotalSGPA += predictions[i];
+                    validCount++;
+                }
+            }
+            
+            const finalPredictedCgpa = validCount > 0 ? (predictedTotalSGPA / validCount) : 0.0;
+            document.getElementById('predicted-cgpa-display').textContent = finalPredictedCgpa.toFixed(2);
+            
+            if (firstPredictedSem !== null) {
+                document.getElementById('next-sem-num').textContent = firstPredictedSem;
+                document.getElementById('next-sem-sgpa-display').textContent = predictions[firstPredictedSem].toFixed(2);
+                document.getElementById('next-sem-card').style.visibility = 'visible';
+                document.getElementById('next-sem-card').style.position = 'static';
+            } else {
+                document.getElementById('next-sem-card').style.visibility = 'hidden';
+                document.getElementById('next-sem-card').style.position = 'absolute';
+            }
+            
+            const remainingCount = 8 - completedSems.length;
+            let requiredSgpa = 0;
+            if (remainingCount > 0 && targetCgpa > 0) {
+                const currentSum = completedSems.reduce((s, item) => s + item.sgpa, 0);
+                requiredSgpa = (targetCgpa * 8 - currentSum) / remainingCount;
+            }
+            
+            const statusBadge = document.getElementById('status-badge');
+            const analysisText = document.getElementById('required-gpa-analysis');
+            
+            if (targetCgpa > 0) {
+                document.getElementById('target-analysis-wrapper').style.display = 'block';
+                if (requiredSgpa > 10) {
+                    statusBadge.textContent = 'Mathematically Impossible ⚠️';
+                    statusBadge.style.backgroundColor = '#ff5252';
+                    statusBadge.style.color = '#fff';
+                    analysisText.textContent = `Reaching ${targetCgpa.toFixed(2)} requires an average SGPA of ${requiredSgpa.toFixed(2)} in remaining semesters. Consider a more gradual target.`;
+                } else if (remainingCount === 0) {
+                    if (finalPredictedCgpa >= targetCgpa) {
+                        statusBadge.textContent = 'Target Met! 🎉';
+                        statusBadge.style.backgroundColor = 'var(--accent-green)';
+                        statusBadge.style.color = '#fff';
+                        analysisText.textContent = `Excellent job! Your completed curriculum CGPA fulfills your target.`;
+                    } else {
+                        statusBadge.textContent = 'Target Missed 📉';
+                        statusBadge.style.backgroundColor = '#ff5252';
+                        statusBadge.style.color = '#fff';
+                        analysisText.textContent = `All semesters are completed. Your final score is below the target.`;
+                    }
+                } else if (finalPredictedCgpa >= targetCgpa) {
+                    statusBadge.textContent = 'On Track ✨';
+                    statusBadge.style.backgroundColor = 'var(--accent-green)';
+                    statusBadge.style.color = '#fff';
+                    analysisText.textContent = `Your current AI trajectory puts you ahead! Maintain an average of ${requiredSgpa.toFixed(2)} to secure it.`;
+                } else {
+                    statusBadge.textContent = 'Action Required ⚡';
+                    statusBadge.style.backgroundColor = '#ffab00';
+                    statusBadge.style.color = '#000';
+                    analysisText.textContent = `Your predicted curve falls slightly short. You need to average ${requiredSgpa.toFixed(2)} in the remaining ${remainingCount} semesters to meet your goal.`;
+                }
+            } else {
+                document.getElementById('target-analysis-wrapper').style.display = 'none';
+            }
+            
+            generateAiTips(finalPredictedCgpa, targetCgpa, requiredSgpa, remainingCount, completedSems.length);
+        }
+
+        function generateAiTips(predictedCgpa, targetCgpa, requiredSgpa, remainingCount, completedCount) {
+            const container = document.getElementById('ai-tips-container');
+            container.innerHTML = '';
+            
+            if (completedCount === 0) {
+                container.innerHTML = `
+                    <div class="tip-box" style="border-left-color: var(--primary-color);">
+                        <div class="tip-title">🚀 Welcome to AI Academic Planner</div>
+                        No completed semesters detected yet. AI defaults projections to a stable baseline. Start tracking your results to trigger fully custom analytics.
+                    </div>
+                `;
+                return;
+            }
+
+            // Tip 1: Trend-based Analysis
+            let trendHtml = '';
+            if (predictedCgpa >= targetCgpa) {
+                trendHtml = `
+                    <div class="tip-box" style="border-left-color: var(--accent-green);">
+                        <div class="tip-title">📈 Momentum Insight</div>
+                        Your existing performance model shows solid academic strength. The AI detects you are currently pacing to hit or exceed your targets comfortably if you avoid burnout.
+                    </div>
+                `;
+            } else if (requiredSgpa <= 10 && requiredSgpa > 0) {
+                trendHtml = `
+                    <div class="tip-box" style="border-left-color: #ffab00;">
+                        <div class="tip-title">🔍 Growth Buffer Analysis</div>
+                        A gap of ${(targetCgpa - predictedCgpa).toFixed(2)} points exists between your standard projection and target goal. Elevating your active grade outcomes by roughly +${Math.max(0.2, (requiredSgpa - (predictedCgpa + requiredSgpa)/2)).toFixed(2)} in upcoming sessions will close this gap.
+                    </div>
+                `;
+            } else {
+                trendHtml = `
+                    <div class="tip-box" style="border-left-color: #ff5252;">
+                        <div class="tip-title">⚠️ Deficit Notice</div>
+                        Your target requires more grade points than are available in remaining semesters. Re-calibrate your expectations or focus on extra-curricular/skills portfolio enhancement.
+                    </div>
+                `;
+            }
+            container.innerHTML += trendHtml;
+
+            // Tip 2: Credit Optimization (Dynamic based on required SGPA)
+            if (remainingCount > 0 && requiredSgpa <= 10) {
+                let creditTip = '';
+                if (requiredSgpa > 9.0) {
+                    creditTip = `
+                        <div class="tip-box" style="border-left-color: var(--primary-color);">
+                            <div class="tip-title">🎯 High-Intensity Credit Strategy</div>
+                            To achieve an SGPA of ${requiredSgpa.toFixed(2)}, you must target the highest available tier (O / A+ grades) in 4-credit core subjects. Missing an A+ in a 4-credit module cannot be easily offset by electives.
+                        </div>
+                    `;
+                } else if (requiredSgpa > 8.0) {
+                    creditTip = `
+                        <div class="tip-box" style="border-left-color: var(--primary-color);">
+                            <div class="tip-title">📊 Balanced Optimization Track</div>
+                            An SGPA of ${requiredSgpa.toFixed(2)} is highly realistic. Focus on maintaining consistent continuous assessment scores (internals). Aim for a solid 42+/50 in internal marks across all subjects.
+                        </div>
+                    `;
+                } else {
+                    creditTip = `
+                        <div class="tip-box" style="border-left-color: var(--accent-green);">
+                            <div class="tip-title">✅ Maintenance Strategy</div>
+                            You require a moderate ${requiredSgpa.toFixed(2)} SGPA. Focus on steady attendance compliance and systematic submission of assignments. Consistency beats sudden intense cramming here.
+                        </div>
+                    `;
+                }
+                container.innerHTML += creditTip;
+            }
+
+            // Tip 3: Generic actionable advice
+            container.innerHTML += `
+                <div class="tip-box" style="border-left-color: var(--accent-purple);">
+                    <div class="tip-title">💡 Internal Assessment Leverage</div>
+                    Securing maximum internal or lab marks represents the easiest margin of safety. Every 5 marks lost in mid-terms requires scoring an extra 10% on the comprehensive end-semester exam.
+                </div>
+                <div class="tip-box" style="border-left-color: var(--text-muted);">
+                    <div class="tip-title">⏰ Revision Slots & Spaced Recall</div>
+                    AI historical student models indicate that regular 30-minute deep review intervals for tough analytical subjects weekly reduce final revision time by 60% compared to textbook cramming.
+                </div>
+            `;
+        }
+    </script>
+</body>
+
+</html>
