@@ -166,52 +166,48 @@ window.getSubjects = getSubjects;
 window.saveSemesterSubjects = saveSemesterSubjects;
 
 // Helper: Get Subjects (LS Override > Default + Custom Legacy)
-// Helper: Get Subjects (localStorage-first for speed, Firebase in background)
+// Helper: Get Subjects (always use hardcoded defaults as source of truth, Firebase in background)
 async function getSubjects(sem) {
     // 0. Static Override for Semester 8 (Lock to 12-credit Project)
     if (sem == 8) {
         return subjectData[8];
     }
 
-    // 1. Check localStorage FIRST for instant loading
+    // 1. Always use hardcoded subjectData as the primary source (keeps subjects up-to-date)
+    if (subjectData[sem] && subjectData[sem].length > 0) {
+        const subjects = [...subjectData[sem]];
+
+        // Merge with any custom subjects added via admin
+        const custom = JSON.parse(localStorage.getItem('custom_subjects') || '[]');
+        const customForSem = custom.filter(s => s.sem == sem);
+
+        // Update localStorage cache silently so Firebase sync still works
+        const merged = [...subjects, ...customForSem];
+        localStorage.setItem(`subjects_sem_${sem}`, JSON.stringify(merged));
+
+        return merged;
+    }
+
+    // 2. Fallback: Check localStorage cache (for semesters with no hardcoded data)
     const override = localStorage.getItem(`subjects_sem_${sem}`);
     if (override) {
         const cachedSubjects = JSON.parse(override);
-
-        // Return cached data immediately for fast display
-        // Then fetch from Firebase in background to update cache
-        getSubjectsFromFirebase(sem).then(firebaseSubjects => {
-            if (firebaseSubjects && firebaseSubjects.length > 0) {
-                // Silently update cache if Firebase has different data
-                const cachedStr = JSON.stringify(cachedSubjects);
-                const firebaseStr = JSON.stringify(firebaseSubjects);
-                if (cachedStr !== firebaseStr) {
-                    localStorage.setItem(`subjects_sem_${sem}`, firebaseStr);
-                }
-            }
-        }).catch(e => console.log('Background Firebase fetch failed'));
-
-        return cachedSubjects;
+        if (cachedSubjects && cachedSubjects.length > 0) {
+            return cachedSubjects;
+        }
     }
 
-    // 2. If no cache, try Firebase (first-time load only)
+    // 3. Last resort: Try Firebase
     try {
         const firebaseSubjects = await getSubjectsFromFirebase(sem);
         if (firebaseSubjects && firebaseSubjects.length > 0) {
             return firebaseSubjects;
         }
     } catch (e) {
-        console.log('Firebase fetch failed, using defaults');
+        console.log('Firebase fetch failed, no subjects found');
     }
 
-    // 3. Use Default Data
-    let subjects = subjectData[sem] ? [...subjectData[sem]] : [];
-
-    // 4. Merge with 'custom_subjects' (Legacy support)
-    const custom = JSON.parse(localStorage.getItem('custom_subjects') || '[]');
-    const customForSem = custom.filter(s => s.sem == sem);
-
-    return [...subjects, ...customForSem];
+    return [];
 }
 
 // Helper: Save Semester Data (Firebase + localStorage)
