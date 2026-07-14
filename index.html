@@ -17,42 +17,10 @@
     <div class="container">
         <!-- Main Card -->
         <div class="card landing-card">
-            <div class="logout-btn-wrapper">
-                <button id="logout-btn" class="btn btn-secondary logout-btn">Logout</button>
-            </div>
-
             <div class="header-bg" style="text-align: center; margin-bottom: 2rem;">
                 <h1 class="page-title" style="margin-bottom: 0.5rem;">EduGradeX</h1>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Welcome, <span id="user-display-name"
-                        style="color: var(--primary-color); font-weight: bold;">Student</span></p>
-                
-                <!-- Quick Stats -->
-                <div id="user-quick-stats" style="margin-top: 10px; display: none;">
-                    <span id="user-roll-display" style="font-size: 0.75rem; color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px;">Roll No: ---</span>
-                </div>
-
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">Select your semester to begin</p>
             </div>
-
-            <script>
-                // Auth Check
-                const userSession = sessionStorage.getItem('res_user');
-                if (!userSession) {
-                    window.location.href = 'login.html';
-                } else {
-                    const user = JSON.parse(userSession);
-                    document.getElementById('user-display-name').textContent = user.name;
-                    if (user.rollNo) {
-                        document.getElementById('user-quick-stats').style.display = 'block';
-                        document.getElementById('user-roll-display').textContent = `Roll No: ${user.rollNo}`;
-                    }
-                }
-
-                document.getElementById('logout-btn').onclick = () => {
-                    sessionStorage.removeItem('res_user');
-                    window.location.href = 'login.html';
-                };
-            </script>
 
             <!-- Semester Grid -->
             <div class="sem-grid">

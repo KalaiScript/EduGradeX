@@ -1,4 +1,4 @@
-import { saveResultToFirebase, getStudentResults, verifyStudentMatch, createStudent, saveSubjectsToFirebase, getSubjectsFromFirebase, getSemesterSettings } from './firebase-config.js';
+import { saveResultToFirebase, getStudentResults, saveOrCreateStudent, createStudent, saveSubjectsToFirebase, getSubjectsFromFirebase, getSemesterSettings } from './firebase-config.js';
 
 // ... (existing code) ...
 
@@ -107,16 +107,16 @@ const subjectData = {
         { name: "OPERATING SYSTEMS LABORATORY", credit: 1, code: "23CSF13", type: "Professional Core" }
     ],
     4: [
+        { name: "CAREER DEVELOPMENT SKILL - I", credit: 1, code: "23BSS30", type: "Basic Sciences" },
         { name: "PROBABILITY AND STATISTICS", credit: 4, code: "23BSS32", type: "Basic Sciences" },
+        { name: "FOUNDATIONS OF DATA SCIENCE", credit: 3, code: "23CSE67", type: "Professional Elective" },
+        { name: "DATA SCIENCE LABORATORY", credit: 1, code: "23CSE68", type: "Professional Elective" },
         { name: "COMPUTER NETWORKS", credit: 3, code: "23CSF07", type: "Professional Core" },
         { name: "DESIGN AND ANALYSIS OF ALGORITHMS", credit: 3, code: "23CSF10", type: "Professional Core" },
         { name: "COMPUTER ORGANIZATION AND ARCHITECTURE", credit: 3, code: "23CSF11", type: "Professional Core" },
         { name: "COMPUTER NETWORKS LABORATORY", credit: 1, code: "23CSF24", type: "Professional Core" },
-        { name: "CAREER DEVELOPMENT SKILL - I", credit: 1, code: "23BSS30", type: "Basic Sciences" },
         { name: "WEB DEVELOPMENT", credit: 3, code: "23CSF40", type: "Professional Core" },
         { name: "WEB DEVELOPMENT LABORATORY", credit: 1, code: "23CSF41", type: "Professional Core" },
-        { name: "FOUNDATIONS OF DATA SCIENCE", credit: 3, code: "23CSE67", type: "Professional Elective" },
-        { name: "DATA SCIENCE LABORATORY", credit: 1, code: "23CSE68", type: "Professional Elective" },
     ],
     5: [
         { name: "CAREER DEVELOPMENT SKILL - II", credit: 1, code: "23BSS31", type: "Basic Sciences" },
@@ -481,15 +481,25 @@ function closeModal() {
 async function submitDetailsAndCalculate() {
     if (!validateStudentDetails()) return;
 
-    // Verify Roll No AND Name
-    const verification = await verifyStudentMatch(studentDetails.rollNo, studentDetails.name);
+    closeModal();
 
-    if (!verification.isValid) {
-        alert(`Validation Failed: ${verification.error}`);
-        return;
+    // Show saving status on the button
+    const btn = document.getElementById('calculate-btn');
+    if (btn) { btn.textContent = 'Checking database...'; btn.disabled = true; }
+
+    // Check if roll number exists; create new record if it doesn't
+    const dbResult = await saveOrCreateStudent(
+        studentDetails.rollNo,
+        studentDetails.year,
+        studentDetails.section
+    );
+
+    if (dbResult.created) {
+        console.log(`New student record created for ${studentDetails.rollNo}`);
     }
 
-    closeModal();
+    if (btn) { btn.textContent = 'Calculate Result'; btn.disabled = false; }
+
     await performCalculation();
 }
 
@@ -528,44 +538,21 @@ async function submitDetailsAndDownload() {
 }
 
 function validateStudentDetails() {
-    const nameInput = document.getElementById('pdf-student-name');
     const rollInput = document.getElementById('pdf-roll-no');
-    const name = nameInput.value.trim();
-    const roll = rollInput.value.trim();
+    const roll = rollInput.value.trim().toUpperCase();
 
-    if (!name) {
-        alert("Please enter Student Name.");
-        nameInput.focus();
-        nameInput.style.borderColor = "#ff5252";
-        return false;
-    }
     if (!roll) {
-        alert("Please enter Roll Number.");
+        alert("Please enter your Roll Number.");
         rollInput.focus();
         rollInput.style.borderColor = "#ff5252";
         return false;
     }
 
-    // Store details
-    studentDetails.name = name;
-    studentDetails.rollNo = roll;
     const yearInput = document.getElementById('pdf-student-year');
     const sectionInput = document.getElementById('pdf-student-section');
-    const year = yearInput.value;
-    const section = sectionInput.value;
+    const year = yearInput ? yearInput.value : '';
+    const section = sectionInput ? sectionInput.value : '';
 
-    if (!name) {
-        alert("Please enter Student Name.");
-        nameInput.focus();
-        nameInput.style.borderColor = "#ff5252";
-        return false;
-    }
-    if (!roll) {
-        alert("Please enter Roll Number.");
-        rollInput.focus();
-        rollInput.style.borderColor = "#ff5252";
-        return false;
-    }
     if (!year) {
         alert("Please select your Year.");
         yearInput.focus();
@@ -580,8 +567,8 @@ function validateStudentDetails() {
     }
 
     // Store details
-    studentDetails.name = name;
     studentDetails.rollNo = roll;
+    studentDetails.name = roll;   // Use roll number as identifier
     studentDetails.year = year;
     studentDetails.section = section;
     return true;

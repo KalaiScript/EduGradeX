@@ -106,23 +106,62 @@ export async function verifyStudentMatch(rollNo, inputName) {
  * Create Student (For Testing/Seeding)
  */
 export async function createStudent(rollNo, name, year, section) {
-    if (!rollNo || !name) return false;
+    if (!rollNo) return false;
     const studentRef = doc(db, STUDENTS_COLLECTION, rollNo);
     try {
         await setDoc(studentRef, {
-            name: name,
-            id: rollNo, // Store ID inside doc too
+            name: name || "",
+            id: rollNo,
             year: year || "1",
             section: section || "A",
             results: {},
             currentCGPA: "0.00",
             lastUpdated: new Date().toISOString()
         }, { merge: true });
-        console.log(`Student ${name} (${rollNo}) created.`);
+        console.log(`Student (${rollNo}) created/updated.`);
         return true;
     } catch (e) {
         console.error("Error creating student:", e);
         return false;
+    }
+}
+
+/**
+ * Save or Create Student by Roll Number.
+ * - If Roll Number exists in Firestore → just proceed (update will happen via saveResultToFirebase)
+ * - If Roll Number does NOT exist → create a new document first, then return true
+ * @param {string} rollNo - Roll Number (used as document ID)
+ * @param {string} year
+ * @param {string} section
+ * @returns {Promise<{exists: boolean, created: boolean}>}
+ */
+export async function saveOrCreateStudent(rollNo, year, section) {
+    if (!rollNo) return { exists: false, created: false };
+
+    const studentRef = doc(db, STUDENTS_COLLECTION, rollNo);
+    const snap = await getDoc(studentRef);
+
+    if (snap.exists()) {
+        console.log(`Student ${rollNo} already exists in database.`);
+        return { exists: true, created: false };
+    } else {
+        // Create new student document
+        try {
+            await setDoc(studentRef, {
+                name: "",           // Name not collected at this point
+                id: rollNo,
+                year: year || "1",
+                section: section || "A",
+                results: {},
+                currentCGPA: "0.00",
+                lastUpdated: new Date().toISOString()
+            });
+            console.log(`New student ${rollNo} created in database.`);
+            return { exists: false, created: true };
+        } catch (e) {
+            console.error("Error creating new student:", e);
+            return { exists: false, created: false };
+        }
     }
 }
 
@@ -420,18 +459,14 @@ export async function getStudentDetails(rollNo) {
     }
 }
 
-// Helper to check session
+// Auth is disabled - login page removed
 export function checkAuth() {
-    const user = sessionStorage.getItem('res_user');
-    if (!user) {
-        window.location.href = 'login.html';
-    }
-    return JSON.parse(user);
+    return {};
 }
 
 export function logout() {
     sessionStorage.removeItem('res_user');
-    window.location.href = 'login.html';
+    window.location.reload();
 }
 
 /**

@@ -15,12 +15,6 @@
 <body>
 
     <div class="container">
-        <script>
-            // Auth Check
-            if (!sessionStorage.getItem('res_user')) {
-                window.location.href = 'login.html';
-            }
-        </script>
         <!-- Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <a href="index.html" style="color: var(--text-muted); font-size: 1.5rem;">
@@ -146,17 +140,10 @@
     <div id="student-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Enter Details</h2>
+                <h2>Enter Your Roll Number</h2>
             </div>
             <div class="modal-body">
                 <div style="margin-bottom: 22px;">
-                    <label
-                        style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Student
-                        Name</label>
-                    <input type="text" id="pdf-student-name" placeholder="e.g. Kalaiyarasan"
-                        oninput="this.style.borderColor=''" style="padding: 14px;">
-                </div>
-                <div>
                     <label
                         style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Roll
                         Number</label>
@@ -193,7 +180,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-download" onclick="submitDetailsAndCalculate()">Download PDF</button>
+                <button class="btn btn-download" onclick="submitDetailsAndCalculate()">Calculate Result</button>
             </div>
         </div>
     </div>
