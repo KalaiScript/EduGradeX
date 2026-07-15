@@ -567,6 +567,11 @@ function validateStudentDetails() {
     studentDetails.name = roll;   // Use roll number as identifier
     studentDetails.year = year;
     studentDetails.section = section;
+
+    // Persist the last calculated student's roll number so the home page
+    // can display their CGPA without requiring a login session.
+    localStorage.setItem('last_calculated_roll', roll);
+
     return true;
 }
 
@@ -789,9 +794,11 @@ async function updateHomePageStats() {
     const display = document.getElementById('total-cgpa-display');
     if (!display) return;
 
-    // Get current user
+    // Determine current user: prefer session login, fall back to last calculated roll
     const userSession = sessionStorage.getItem('res_user');
-    const currentUser = userSession ? JSON.parse(userSession).rollNo : null;
+    const currentUser = userSession
+        ? JSON.parse(userSession).rollNo
+        : localStorage.getItem('last_calculated_roll');
 
     if (!currentUser) {
         display.textContent = "0.00";
@@ -803,7 +810,8 @@ async function updateHomePageStats() {
         const results = await getStudentResults(currentUser);
 
         if (!results || results.length === 0) {
-            display.textContent = "0.00";
+            // No Firebase data yet — fall back to local history
+            fallbackToLocalCGPA(display, currentUser);
             return;
         }
 
